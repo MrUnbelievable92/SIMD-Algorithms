@@ -1,0 +1,21 @@
+{
+  "name": "simd_algorithms",
+  "displayName": "SIMD Algorithms",
+  "version": "1.0.0",
+  "unity": "2018.4",
+  "description": "A collection of hand optimized SIMD versions of common array algorithms.",
+  "keywords": [
+    "Unity"
+  ],
+  "dependencies": {
+    "csharpdevtools": "1.0.5",
+    "com.unity.burst": "1.5.0",
+    "com.unity.mathematics": "1.2.1",
+    "com.unity.collections": "0.14.0-preview.16"
+  },
+  "author": {
+    "name": "Maximilian Kalimon",
+    "email": "mkalimon@gmx.de"
+  },
+  "type": "library"
+}
