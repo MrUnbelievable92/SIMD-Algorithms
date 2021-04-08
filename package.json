@@ -17,5 +17,9 @@
     "name": "Maximilian Kalimon",
     "email": "mkalimon@gmx.de"
   },
+  "repository": {
+    "url": "https://github.com/MrUnbelievable92/SIMD-Algorithms",
+    "type": "git"
+  },
   "type": "library"
 }
