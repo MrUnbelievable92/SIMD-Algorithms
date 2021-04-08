@@ -50,7 +50,7 @@ namespace SIMDAlgorithms
                 {
                     bool possible32BitOverflow = summandCount > uint.MaxValue / ushort.MaxValue;
 
-                    return (TypeCode)((int)TypeCode.UInt16 + (*(byte*)&possible32BitOverflow << 1));
+                    return (TypeCode)((int)TypeCode.UInt32 + (*(byte*)&possible32BitOverflow << 1));
                 }
                 case TypeCode.UInt32:
                 {
