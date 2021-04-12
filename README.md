@@ -1,6 +1,6 @@
 # SIMD-Algorithms
 
-This package contains some of the most common array algorithms which are either auto-vectorized very poorly (like summing up unsigend bytes) or not auto vectorized at all (Contains, IndexOf, etc.).
+This package contains some of the most common array algorithms which are either auto-vectorized very poorly (like summing up unsigned bytes) or not auto vectorized at all (Contains, IndexOf, etc.).
 
 All included functions have a "SIMD_" prefix added to their name.
 
