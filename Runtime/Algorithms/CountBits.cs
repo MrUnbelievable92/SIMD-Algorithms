@@ -17,8 +17,9 @@ namespace SIMDAlgorithms
                                                            0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
         private static v128 SHUFFLE_MASK_Ssse3 => new v128(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
 
-        private static v256 NIBBLE_MASK_AVX => Avx.mm256_set1_epi8(0x0F);
-        private static v128 NIBBLE_MASK_Ssse3 => Sse2.set1_epi8(0x0F);
+        private static v256 NIBBLE_MASK_AVX => new v256(0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F,
+                                                        0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F);
+        private static v128 NIBBLE_MASK_Ssse3 => new v128(0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F);
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -59,7 +60,8 @@ namespace SIMDAlgorithms
             where T : unmanaged
         {
 Assert.IsNonNegative(length);
-Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
+Assert.IsNonNegative(length * sizeof(T));
+Assert.IsNotGreater((ulong)length * (ulong)sizeof(T), (ulong)long.MaxValue);
 
             if (Avx2.IsAvx2Supported)
             {
@@ -80,7 +82,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 v256* ptr_v256 = (v256*)ptr;
 
 
-                while (bytes >= 31 * 32)
+                while (Hint.Likely(bytes >= 32 * (byte.MaxValue / 8)))
                 {
                     sum = operation == BitwiseOperation.AND    ? Popcnt_AVX(Avx2.mm256_and_si256(Avx.mm256_loadu_si256(ptr_v256++), mask), SHUFFLE_MASK, NIBBLE_MASK)                                 :
                           operation == BitwiseOperation.OR     ? Popcnt_AVX(Avx2.mm256_or_si256(Avx.mm256_loadu_si256(ptr_v256++), mask), SHUFFLE_MASK, NIBBLE_MASK)                                  :
@@ -106,16 +108,16 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                     }
 
                     longSum = Avx2.mm256_add_epi64(longSum, Avx2.mm256_sad_epu8(sum, ZERO));
-                    bytes -= 31 * 32;
+                    bytes -= 32 * (byte.MaxValue / 8);
                 }
 
 
                 sum = ZERO;
 
 
-                for (int i = 0; i < 30; i++)
+                for (int i = 0; i < (byte.MaxValue / 8) - 1; i++)
                 {
-                    if (Hint.Likely(bytes >= 32))
+                    if (Hint.Likely((int)bytes >= 32))
                     {
                         sum = Avx2.mm256_add_epi8(sum, operation == BitwiseOperation.AND    ? Popcnt_AVX(Avx2.mm256_and_si256(Avx.mm256_loadu_si256(ptr_v256++), mask), SHUFFLE_MASK, NIBBLE_MASK)                                 :
                                                        operation == BitwiseOperation.OR     ? Popcnt_AVX(Avx2.mm256_or_si256(Avx.mm256_loadu_si256(ptr_v256++), mask), SHUFFLE_MASK, NIBBLE_MASK)                                  :
@@ -136,7 +138,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 longSum = Avx2.mm256_add_epi64(longSum, Avx2.mm256_sad_epu8(sum, ZERO));
                 v128 csum = Sse2.add_epi64(Avx.mm256_castsi256_si128(longSum), Avx2.mm256_extracti128_si256(longSum, 1));
 
-                if (Hint.Likely(bytes >= 16))
+                if (Hint.Likely((int)bytes >= 16))
                 {
                     v128 popcnt = operation == BitwiseOperation.AND    ? Popcnt_Ssse3(Sse2.and_si128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask)), Avx.mm256_castsi256_si128(SHUFFLE_MASK), Avx.mm256_castsi256_si128(NIBBLE_MASK))                                                      :
                                   operation == BitwiseOperation.OR     ? Popcnt_Ssse3(Sse2.or_si128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask)), Avx.mm256_castsi256_si128(SHUFFLE_MASK), Avx.mm256_castsi256_si128(NIBBLE_MASK))                                                       :
@@ -159,7 +161,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 ulong maskScalar = mask.ULong0;
 
 
-                if (Hint.Likely(bytes >= 8))
+                if (Hint.Likely((int)bytes >= 8))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? *(ulong*)ptr_v256 & maskScalar    :
                                                  operation == BitwiseOperation.OR     ? *(ulong*)ptr_v256 | maskScalar    :
@@ -176,7 +178,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 }
 
 
-                if (Hint.Likely(bytes >= 4))
+                if (Hint.Likely((int)bytes >= 4))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? *(uint*)ptr_v256 & (uint)maskScalar    :
                                                  operation == BitwiseOperation.OR     ? *(uint*)ptr_v256 | (uint)maskScalar    :
@@ -193,7 +195,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 }
 
 
-                if (Hint.Likely(bytes >= 2))
+                if (Hint.Likely((int)bytes >= 2))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? (uint)(*(ushort*)ptr_v256 & (ushort)maskScalar)    :
                                                  operation == BitwiseOperation.OR     ? (uint)(*(ushort*)ptr_v256 | (ushort)maskScalar)    :
@@ -245,7 +247,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 v128* ptr_v128 = (v128*)ptr;
 
 
-                while (bytes >= 31 * 16)
+                while (Hint.Likely(bytes >= 16 * (byte.MaxValue / 8)))
                 {
                     sum = operation == BitwiseOperation.AND    ? Popcnt_Ssse3(Sse2.and_si128(Sse2.loadu_si128(ptr_v128++), mask), SHUFFLE_MASK, NIBBLE_MASK)                           :
                           operation == BitwiseOperation.OR     ? Popcnt_Ssse3(Sse2.or_si128(Sse2.loadu_si128(ptr_v128++), mask), SHUFFLE_MASK, NIBBLE_MASK)                            :
@@ -271,16 +273,16 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                     }
 
                     longSum = Sse2.add_epi64(longSum, Sse2.sad_epu8(sum, ZERO));
-                    bytes -= 31 * 16;
+                    bytes -= 16 * (byte.MaxValue / 8);
                 }
 
 
                 sum = ZERO;
 
 
-                for (int i = 0; i < 30; i++)
+                for (int i = 0; i < (byte.MaxValue / 8) - 1; i++)
                 {
-                    if (Hint.Likely(bytes >= 16))
+                    if (Hint.Likely((int)bytes >= 16))
                     {
                         sum = Sse2.add_epi8(sum, operation == BitwiseOperation.AND    ? Popcnt_Ssse3(Sse2.and_si128(Sse2.loadu_si128(ptr_v128++), mask), SHUFFLE_MASK, NIBBLE_MASK)                           :
                                                  operation == BitwiseOperation.OR     ? Popcnt_Ssse3(Sse2.or_si128(Sse2.loadu_si128(ptr_v128++), mask), SHUFFLE_MASK, NIBBLE_MASK)                            :
@@ -305,7 +307,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 ulong maskScalar = mask.ULong0;
 
 
-                if (Hint.Likely(bytes >= 8))
+                if (Hint.Likely((int)bytes >= 8))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? *(ulong*)ptr_v128 & maskScalar    :
                                                  operation == BitwiseOperation.OR     ? *(ulong*)ptr_v128 | maskScalar    :
@@ -322,7 +324,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 }
 
 
-                if (Hint.Likely(bytes >= 4))
+                if (Hint.Likely((int)bytes >= 4))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? *(uint*)ptr_v128 & (uint)maskScalar    :
                                                  operation == BitwiseOperation.OR     ? *(uint*)ptr_v128 | (uint)maskScalar    :
@@ -339,7 +341,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 }
 
 
-                if (Hint.Likely(bytes >= 2))
+                if (Hint.Likely((int)bytes >= 2))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? (uint)(*(ushort*)ptr_v128 & (ushort)maskScalar)    :
                                                  operation == BitwiseOperation.OR     ? (uint)(*(ushort*)ptr_v128 | (ushort)maskScalar)    :
@@ -430,7 +432,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 }
 
 
-                if (Hint.Likely(bytes >= 4))
+                if (Hint.Likely((int)bytes >= 4))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? *(uint*)ptr & (uint)mask    :
                                                  operation == BitwiseOperation.OR     ? *(uint*)ptr | (uint)mask    :
@@ -447,7 +449,7 @@ Assert.IsNotGreater(length * sizeof(T), long.MaxValue);
                 }
 
 
-                if (Hint.Likely(bytes >= 2))
+                if (Hint.Likely((int)bytes >= 2))
                 {
                     bits += (uint)math.countbits(operation == BitwiseOperation.AND    ? (uint)(*(ushort*)ptr & (ushort)mask)    :
                                                  operation == BitwiseOperation.OR     ? (uint)(*(ushort*)ptr | (ushort)mask)    :
@@ -498,7 +500,7 @@ Assert.IsNonNegative(bytes);
                 v256* ptr_v256 = (v256*)ptr;
 
 
-                while (bytes >= 31 * 32)
+                while (Hint.Likely(bytes >= 32 * (byte.MaxValue / 8)))
                 {
                     sum = Popcnt_AVX(Avx.mm256_loadu_si256(ptr_v256++), SHUFFLE_MASK, NIBBLE_MASK);
 
@@ -508,16 +510,16 @@ Assert.IsNonNegative(bytes);
                     }
 
                     longSum = Avx2.mm256_add_epi64(longSum, Avx2.mm256_sad_epu8(sum, ZERO));
-                    bytes -= 31 * 32;
+                    bytes -= 32 * (byte.MaxValue / 8);
                 }
 
 
                 sum = ZERO;
 
 
-                for (int i = 0; i < 30; i++)
+                for (int i = 0; i < (byte.MaxValue / 8) - 1; i++)
                 {
-                    if (Hint.Likely(bytes >= 32))
+                    if (Hint.Likely((int)bytes >= 32))
                     {
                         sum = Avx2.mm256_add_epi8(sum, Popcnt_AVX(Avx.mm256_loadu_si256(ptr_v256++), SHUFFLE_MASK, NIBBLE_MASK));
                         bytes -= 32;
@@ -529,7 +531,7 @@ Assert.IsNonNegative(bytes);
                 longSum = Avx2.mm256_add_epi64(longSum, Avx2.mm256_sad_epu8(sum, ZERO));
                 v128 csum = Sse2.add_epi64(Avx.mm256_castsi256_si128(longSum), Avx2.mm256_extracti128_si256(longSum, 1));
 
-                if (Hint.Likely(bytes >= 16))
+                if (Hint.Likely((int)bytes >= 16))
                 {
                     v128 popcnt = Popcnt_Ssse3(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(SHUFFLE_MASK), Avx.mm256_castsi256_si128(NIBBLE_MASK));
                     csum = Sse2.add_epi64(csum, Sse2.sad_epu8(popcnt, Avx.mm256_castsi256_si128(ZERO)));
@@ -542,7 +544,7 @@ Assert.IsNonNegative(bytes);
                 ulong bits = csum.ULong0;
 
 
-                if (Hint.Likely(bytes >= 8))
+                if (Hint.Likely((int)bytes >= 8))
                 {
                     bits += (uint)math.countbits(*(ulong*)ptr_v256);
 
@@ -551,7 +553,7 @@ Assert.IsNonNegative(bytes);
                 }
 
 
-                if (Hint.Likely(bytes >= 4))
+                if (Hint.Likely((int)bytes >= 4))
                 {
                     bits += (uint)math.countbits(*(uint*)ptr_v256);
 
@@ -560,7 +562,7 @@ Assert.IsNonNegative(bytes);
                 }
 
 
-                if (Hint.Likely(bytes >= 2))
+                if (Hint.Likely((int)bytes >= 2))
                 {
                     bits += (uint)math.countbits((uint)*((ushort*)ptr_v256));
 
@@ -588,7 +590,7 @@ Assert.IsNonNegative(bytes);
                 v128* ptr_v128 = (v128*)ptr;
 
 
-                while (bytes >= 31 * 16)
+                while (Hint.Likely(bytes >= 16 * (byte.MaxValue / 8)))
                 {
                     sum = Popcnt_Ssse3(Sse2.loadu_si128(ptr_v128++), SHUFFLE_MASK, NIBBLE_MASK);
 
@@ -599,15 +601,15 @@ Assert.IsNonNegative(bytes);
 
 
                     longSum = Sse2.add_epi64(longSum, Sse2.sad_epu8(ZERO, sum));
-                    bytes -= 31 * 16;
+                    bytes -= 16 * (byte.MaxValue / 8);
                 }
 
 
                 sum = ZERO;
 
-                for (int i = 0; i < 30; i++)
+                for (int i = 0; i < (byte.MaxValue / 8) - 1; i++)
                 {
-                    if (Hint.Likely(bytes >= 16))
+                    if (Hint.Likely((int)bytes >= 16))
                     {
                         sum = Sse2.add_epi64(sum, Popcnt_Ssse3(Sse2.loadu_si128(ptr_v128++), SHUFFLE_MASK, NIBBLE_MASK));
 
@@ -621,7 +623,7 @@ Assert.IsNonNegative(bytes);
                 ulong bits = longSum.ULong0;
 
 
-                if (Hint.Likely(bytes >= 8))
+                if (Hint.Likely((int)bytes >= 8))
                 {
                     bits += (uint)math.countbits(*(ulong*)ptr_v128);
 
@@ -630,7 +632,7 @@ Assert.IsNonNegative(bytes);
                 }
 
 
-                if (Hint.Likely(bytes >= 4))
+                if (Hint.Likely((int)bytes >= 4))
                 {
                     bits += (uint)math.countbits(*(uint*)ptr_v128);
 
@@ -639,7 +641,7 @@ Assert.IsNonNegative(bytes);
                 }
 
 
-                if (Hint.Likely(bytes >= 2))
+                if (Hint.Likely((int)bytes >= 2))
                 {
                     bits += (uint)math.countbits((uint)*((ushort*)ptr_v128));
 
@@ -692,13 +694,17 @@ Assert.IsNonNegative(bytes);
         public static ulong SIMD_CountBits<T>(this NativeArray<T> array, int index)
             where T : unmanaged
         {
-            return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, (array.Length * sizeof(T) - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index) * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits<T>(this NativeArray<T> array, int index, int numEntries)
             where T : unmanaged
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, numEntries * sizeof(T));
         }
 
@@ -713,13 +719,17 @@ Assert.IsNonNegative(bytes);
         public static ulong SIMD_CountBits<T>(this NativeList<T> array, int index)
             where T : unmanaged
         {
-            return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, (array.Length * sizeof(T) - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index) * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits<T>(this NativeList<T> array, int index, int numEntries)
             where T : unmanaged
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, numEntries * sizeof(T));
         }
 
@@ -734,13 +744,17 @@ Assert.IsNonNegative(bytes);
         public static ulong SIMD_CountBits<T>(this NativeSlice<T> array, int index)
             where T : unmanaged
         {
-            return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, (array.Length * sizeof(T) - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index) * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits<T>(this NativeSlice<T> array, int index, int numEntries)
             where T : unmanaged
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((T*)array.GetUnsafeReadOnlyPtr() + index, numEntries * sizeof(T));
         }
 
@@ -774,12 +788,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<byte> array, int index, BitwiseOperation operation = BitwiseOperation.None, byte operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<byte> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, byte operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -792,12 +810,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<byte> array, int index, BitwiseOperation operation = BitwiseOperation.None, byte operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<byte> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, byte operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -810,12 +832,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<byte> array, int index, BitwiseOperation operation = BitwiseOperation.None, byte operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<byte> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, byte operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -849,12 +875,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<ushort> array, int index, BitwiseOperation operation = BitwiseOperation.None, ushort operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<ushort> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, ushort operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -867,12 +897,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<ushort> array, int index, BitwiseOperation operation = BitwiseOperation.None, ushort operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<ushort> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, ushort operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -885,12 +919,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<ushort> array, int index, BitwiseOperation operation = BitwiseOperation.None, ushort operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<ushort> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, ushort operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -924,12 +962,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<uint> array, int index, BitwiseOperation operation = BitwiseOperation.None, uint operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<uint> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, uint operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -942,12 +984,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<uint> array, int index, BitwiseOperation operation = BitwiseOperation.None, uint operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<uint> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, uint operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -960,12 +1006,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<uint> array, int index, BitwiseOperation operation = BitwiseOperation.None, uint operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<uint> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, uint operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -999,12 +1049,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<ulong> array, int index, BitwiseOperation operation = BitwiseOperation.None, ulong operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<ulong> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, ulong operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1017,12 +1071,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<ulong> array, int index, BitwiseOperation operation = BitwiseOperation.None, ulong operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<ulong> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, ulong operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1035,12 +1093,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<ulong> array, int index, BitwiseOperation operation = BitwiseOperation.None, ulong operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<ulong> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, ulong operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1074,12 +1136,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<sbyte> array, int index, BitwiseOperation operation = BitwiseOperation.None, sbyte operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<sbyte> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, sbyte operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1092,12 +1158,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<sbyte> array, int index, BitwiseOperation operation = BitwiseOperation.None, sbyte operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<sbyte> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, sbyte operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1110,12 +1180,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<sbyte> array, int index, BitwiseOperation operation = BitwiseOperation.None, sbyte operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<sbyte> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, sbyte operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1149,12 +1223,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<short> array, int index, BitwiseOperation operation = BitwiseOperation.None, short operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<short> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, short operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1167,12 +1245,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<short> array, int index, BitwiseOperation operation = BitwiseOperation.None, short operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<short> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, short operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1185,12 +1267,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<short> array, int index, BitwiseOperation operation = BitwiseOperation.None, short operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<short> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, short operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1224,12 +1310,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<int> array, int index, BitwiseOperation operation = BitwiseOperation.None, int operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<int> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, int operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1242,12 +1332,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<int> array, int index, BitwiseOperation operation = BitwiseOperation.None, int operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<int> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, int operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1260,12 +1354,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<int> array, int index, BitwiseOperation operation = BitwiseOperation.None, int operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<int> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, int operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1299,12 +1397,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<long> array, int index, BitwiseOperation operation = BitwiseOperation.None, long operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<long> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, long operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1317,12 +1419,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<long> array, int index, BitwiseOperation operation = BitwiseOperation.None, long operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<long> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, long operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1335,12 +1441,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<long> array, int index, BitwiseOperation operation = BitwiseOperation.None, long operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<long> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, long operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1374,12 +1484,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<float> array, int index, BitwiseOperation operation = BitwiseOperation.None, float operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<float> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, float operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1392,12 +1506,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<float> array, int index, BitwiseOperation operation = BitwiseOperation.None, float operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<float> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, float operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1410,12 +1528,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<float> array, int index, BitwiseOperation operation = BitwiseOperation.None, float operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<float> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, float operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1449,12 +1571,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<double> array, int index, BitwiseOperation operation = BitwiseOperation.None, double operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeArray<double> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, double operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1467,12 +1593,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<double> array, int index, BitwiseOperation operation = BitwiseOperation.None, double operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeList<double> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, double operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
 
@@ -1485,12 +1615,16 @@ Assert.IsNonNegative(bytes);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<double> array, int index, BitwiseOperation operation = BitwiseOperation.None, double operand = 0)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_CountBits((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), operation, operand);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_CountBits(this NativeSlice<double> array, int index, int numEntries, BitwiseOperation operation = BitwiseOperation.None, double operand = 0)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_CountBits((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, operation, operand);
         }
     }

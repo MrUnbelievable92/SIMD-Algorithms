@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using DevTools;
+using Unity.Burst;
 
 namespace SIMDAlgorithms
 {
@@ -27,12 +28,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Average(this NativeArray<byte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Average(this NativeArray<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -45,12 +50,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Average(this NativeList<byte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Average(this NativeList<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -63,12 +72,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Average(this NativeSlice<byte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Average(this NativeSlice<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -92,12 +105,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Average(this NativeArray<ushort> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Average(this NativeArray<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -110,12 +127,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Average(this NativeList<ushort> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Average(this NativeList<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -128,12 +149,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Average(this NativeSlice<ushort> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Average(this NativeSlice<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -157,12 +182,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Average(this NativeArray<uint> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Average(this NativeArray<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -175,12 +204,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Average(this NativeList<uint> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Average(this NativeList<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -193,12 +226,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Average(this NativeSlice<uint> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Average(this NativeSlice<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -220,12 +257,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Average(this NativeArray<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Average(this NativeArray<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -238,12 +279,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Average(this NativeList<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Average(this NativeList<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -256,12 +301,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Average(this NativeSlice<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Average(this NativeSlice<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -288,12 +337,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Average(this NativeArray<sbyte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Average(this NativeArray<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -306,12 +359,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Average(this NativeList<sbyte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Average(this NativeList<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -324,12 +381,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Average(this NativeSlice<sbyte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Average(this NativeSlice<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -356,12 +417,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Average(this NativeArray<short> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Average(this NativeArray<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -374,12 +439,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Average(this NativeList<short> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Average(this NativeList<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -392,12 +461,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Average(this NativeSlice<short> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Average(this NativeSlice<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -424,12 +497,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Average(this NativeArray<int> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Average(this NativeArray<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -442,12 +519,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Average(this NativeList<int> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Average(this NativeList<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -460,12 +541,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Average(this NativeSlice<int> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Average(this NativeSlice<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -490,12 +575,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Average(this NativeArray<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Average(this NativeArray<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -508,12 +597,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Average(this NativeList<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Average(this NativeList<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -526,139 +619,171 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Average(this NativeSlice<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Average((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Average(this NativeSlice<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Average((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(float* ptr, long length)
+        public static float SIMD_Average(float* ptr, long length, FloatMode floatMode = FloatMode.Strict)
         {
 Assert.IsNonNegative(length);
 
-            return SIMD_Sum(ptr, length) / length;
+            float freeFullAccuracyRCP = 1f / (float)length;
+
+            return SIMD_Sum(ptr, length, floatMode) * freeFullAccuracyRCP;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeArray<float> array)
+        public static float SIMD_Average(this NativeArray<float> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeArray<float> array, int index)
+        public static float SIMD_Average(this NativeArray<float> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeArray<float> array, int index, int numEntries)
+        public static float SIMD_Average(this NativeArray<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeList<float> array)
+        public static float SIMD_Average(this NativeList<float> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeList<float> array, int index)
+        public static float SIMD_Average(this NativeList<float> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeList<float> array, int index, int numEntries)
+        public static float SIMD_Average(this NativeList<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeSlice<float> array)
+        public static float SIMD_Average(this NativeSlice<float> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeSlice<float> array, int index)
+        public static float SIMD_Average(this NativeSlice<float> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Average(this NativeSlice<float> array, int index, int numEntries)
+        public static float SIMD_Average(this NativeSlice<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Average((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(double* ptr, long length)
+        public static double SIMD_Average(double* ptr, long length, FloatMode floatMode = FloatMode.Strict)
         {
 Assert.IsNonNegative(length);
 
-            return SIMD_Sum(ptr, length) / length;
+            double freeFullAccuracyRCP = 1d / (double)length;
+
+            return SIMD_Sum(ptr, length, floatMode) * freeFullAccuracyRCP;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeArray<double> array)
+        public static double SIMD_Average(this NativeArray<double> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeArray<double> array, int index)
+        public static double SIMD_Average(this NativeArray<double> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeArray<double> array, int index, int numEntries)
+        public static double SIMD_Average(this NativeArray<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeList<double> array)
+        public static double SIMD_Average(this NativeList<double> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeList<double> array, int index)
+        public static double SIMD_Average(this NativeList<double> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeList<double> array, int index, int numEntries)
+        public static double SIMD_Average(this NativeList<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeSlice<double> array)
+        public static double SIMD_Average(this NativeSlice<double> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeSlice<double> array, int index)
+        public static double SIMD_Average(this NativeSlice<double> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Average(this NativeSlice<double> array, int index, int numEntries)
+        public static double SIMD_Average(this NativeSlice<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Average((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
     }
 }

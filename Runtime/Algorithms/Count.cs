@@ -75,7 +75,7 @@ for (int i = 0; i < length; i++)
                     count2 = default(v256);
                     count3 = default(v256);
 
-                    while (Hint.Likely(length >= 32 * 4))
+                    while (Hint.Likely((int)length >= 32 * 4))
                     {
                         count0 = Avx2.mm256_add_epi8(count0, Avx.mm256_loadu_si256(ptr_v256++));
                         count1 = Avx2.mm256_add_epi8(count1, Avx.mm256_loadu_si256(ptr_v256++));
@@ -97,24 +97,28 @@ for (int i = 0; i < length; i++)
                 }
 
 
-                if (length >= 32)
+                if (Hint.Likely((int)length >= 32))
                 {
                     count0 = Avx.mm256_loadu_si256(ptr_v256++);
-                    length -= 32;
 
-                    if (length >= 32)
+                    if (Hint.Likely((int)length >= 2 * 32))
                     {
                         count0 = Avx2.mm256_add_epi8(count0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 32;
 
-                        if (length >= 32)
+                        if (Hint.Likely((int)length >= 3 * 32))
                         {
                             count0 = Avx2.mm256_add_epi8(count0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 32;
+                            length -= 3 * 32;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 32;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 32;
+                    }
 
                     longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_sad_epu8(count0, ZERO));
                 }
@@ -124,7 +128,7 @@ for (int i = 0; i < length; i++)
                 v128 bytes;
                 v128 longs128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     bytes = Sse2.loadu_si128(ptr_v256);
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -137,7 +141,7 @@ for (int i = 0; i < length; i++)
                 }
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     bytes = Sse2.add_epi8(bytes, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -147,7 +151,7 @@ for (int i = 0; i < length; i++)
                 else { }
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     bytes = Sse2.add_epi8(bytes, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -157,7 +161,7 @@ for (int i = 0; i < length; i++)
                 else { }
 
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     bytes = Sse2.add_epi8(bytes, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0));
                     ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
@@ -172,7 +176,7 @@ for (int i = 0; i < length; i++)
 
                 ulong countTotal = longs128.ULong0;
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     countTotal += *(byte*)ptr_v256;
                 }
@@ -235,7 +239,7 @@ for (int i = 0; i < length; i++)
                     count2 = default(v128);
                     count3 = default(v128);
                 
-                    while (Hint.Likely(length >= 16 * 4))
+                    while (Hint.Likely((int)length >= 16 * 4))
                     {
                         count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
                         count1 = Sse2.add_epi8(count1, Sse2.loadu_si128(ptr_v128++));
@@ -257,24 +261,28 @@ for (int i = 0; i < length; i++)
                 }
 
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     count0 = Sse2.loadu_si128(ptr_v128++);
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
 
                     longs = Sse2.add_epi64(longs, Sse2.sad_epu8(count0, ZERO));
                 }
@@ -283,7 +291,7 @@ for (int i = 0; i < length; i++)
 
                 v128 bytes;
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     bytes = Sse2.loadu_si128(ptr_v128++);
 
@@ -295,7 +303,7 @@ for (int i = 0; i < length; i++)
                 }
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     bytes = Sse2.add_epi8(bytes, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
@@ -305,7 +313,7 @@ for (int i = 0; i < length; i++)
                 else { }
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     bytes = Sse2.add_epi8(bytes, Sse2.cvtsi32_si128(*(int*)ptr_v128));
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
@@ -315,7 +323,7 @@ for (int i = 0; i < length; i++)
                 else { }
 
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     bytes = Sse2.add_epi8(bytes, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v128, 0));
                     ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
@@ -330,7 +338,7 @@ for (int i = 0; i < length; i++)
 
                 ulong countTotal = longs.ULong0;
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     countTotal += *(byte*)ptr_v128;
                 }
@@ -376,12 +384,16 @@ for (int i = 0; i < length; i++)
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<bool> array, int index, bool value = true)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<bool> array, int index, int numEntries, bool value = true)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -394,12 +406,16 @@ for (int i = 0; i < length; i++)
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<bool> array, int index, bool value = true)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<bool> array, int index, int numEntries, bool value = true)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -412,12 +428,16 @@ for (int i = 0; i < length; i++)
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<bool> array, int index, bool value = true)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<bool> array, int index, int numEntries, bool value = true)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -470,29 +490,33 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 32)
+                if (Hint.Likely((int)length >= 32))
                 {
                     countTotal += (uint)math.countbits(Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi8(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                    length -= 32;
 
-                    if (length >= 32)
+                    if (Hint.Likely((int)length >= 2 * 32))
                     {
                         countTotal += (uint)math.countbits(Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi8(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                        length -= 32;
 
-                        if (length >= 32)
+                        if (Hint.Likely((int)length >= 3 * 32))
                         {
                             countTotal += (uint)math.countbits(Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi8(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                            length -= 32;
+                            length -= 3 * 32;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 32;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 32;
+                    }
                 }
                 else { }
 
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256))));
 
@@ -502,10 +526,19 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
-                    mask &= 0b1111_1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111_1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -514,10 +547,19 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(int*)ptr_v256)));
-                    mask &= 0b1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -526,10 +568,19 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0)));
-                    mask &= 0b0011;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b0011;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
@@ -538,7 +589,7 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(byte*)ptr_v256 == value;
                     countTotal += *(byte*)&areEqual;
@@ -591,32 +642,45 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
                 }
                 else { }
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-                    mask &= 0b1111_1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111_1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
@@ -625,10 +689,19 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi32_si128(*(int*)ptr_v128)));
-                    mask &= 0b1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
@@ -637,10 +710,19 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v128, 0)));
-                    mask &= 0b0011;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b0011;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
@@ -649,7 +731,7 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(byte*)ptr_v128 == value;
                     countTotal += *(byte*)&areEqual;
@@ -682,12 +764,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<byte> array, int index, byte value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<byte> array, int index, int numEntries, byte value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -700,12 +786,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<byte> array, int index, byte value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<byte> array, int index, int numEntries, byte value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -718,12 +808,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<byte> array, int index, byte value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<byte> array, int index, int numEntries, byte value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -780,29 +874,33 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     countTotal += (uint)math.countbits(Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi16(broadcast, Avx.mm256_loadu_si256(ptr_v256++)))) >> 1;
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         countTotal += (uint)math.countbits(Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi16(broadcast, Avx.mm256_loadu_si256(ptr_v256++)))) >> 1;
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             countTotal += (uint)math.countbits(Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi16(broadcast, Avx.mm256_loadu_si256(ptr_v256++)))) >> 1;
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
                 }
                 else { }
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256)))) >> 1;
 
@@ -811,10 +909,19 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
-                    mask &= 0b1111_1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111_1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask) >> 1;
 
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -822,10 +929,19 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(int*)ptr_v256)));
-                    mask &= 0b1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask) >> 1;
 
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -833,7 +949,7 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(ushort*)ptr_v256 == value;
                     countTotal += *(byte*)&areEqual;
@@ -890,31 +1006,44 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.loadu_si128(ptr_v128++)))) >> 1;
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.loadu_si128(ptr_v128++)))) >> 1;
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             countTotal += (uint)math.countbits(Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.loadu_si128(ptr_v128++)))) >> 1;
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-                    mask &= 0b1111_1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111_1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask) >> 1;
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
@@ -922,10 +1051,19 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.cvtsi32_si128(*(int*)ptr_v128)));
-                    mask &= 0b1111;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b1111;
+                    }
+
                     countTotal += (uint)math.countbits(mask) >> 1;
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
@@ -933,7 +1071,7 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(ushort*)ptr_v128 == value;
                     countTotal += *(byte*)&areEqual;
@@ -966,12 +1104,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<ushort> array, int index, ushort value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<ushort> array, int index, int numEntries, ushort value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -984,12 +1126,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<ushort> array, int index, ushort value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<ushort> array, int index, int numEntries, ushort value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1002,12 +1148,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<ushort> array, int index, ushort value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<ushort> array, int index, int numEntries, ushort value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1060,28 +1210,32 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     countTotal += (uint)math.countbits(Avx.mm256_movemask_ps(Avx2.mm256_cmpeq_epi32(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         countTotal += (uint)math.countbits(Avx.mm256_movemask_ps(Avx2.mm256_cmpeq_epi32(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             countTotal += (uint)math.countbits(Avx.mm256_movemask_ps(Avx2.mm256_cmpeq_epi32(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     countTotal += (uint)math.countbits(Sse.movemask_ps(Sse2.cmpeq_epi32(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256))));
 
@@ -1090,10 +1244,19 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
-                    mask &= 0b0011;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b0011;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -1101,7 +1264,7 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(uint*)ptr_v256 == value;
                     countTotal += *(byte*)&areEqual;
@@ -1154,31 +1317,44 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     countTotal += (uint)math.countbits(Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         countTotal += (uint)math.countbits(Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             countTotal += (uint)math.countbits(Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-                    mask &= 0b0011;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b0011;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
@@ -1186,7 +1362,7 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(uint*)ptr_v128 == value;
                     countTotal += *(byte*)&areEqual;
@@ -1219,12 +1395,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<uint> array, int index, uint value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<uint> array, int index, int numEntries, uint value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1237,12 +1417,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<uint> array, int index, uint value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<uint> array, int index, int numEntries, uint value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1255,12 +1439,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<uint> array, int index, uint value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<uint> array, int index, int numEntries, uint value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1313,28 +1501,32 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     countTotal += (uint)math.countbits(Avx.mm256_movemask_pd(Avx2.mm256_cmpeq_epi64(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         countTotal += (uint)math.countbits(Avx.mm256_movemask_pd(Avx2.mm256_cmpeq_epi64(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             countTotal += (uint)math.countbits(Avx.mm256_movemask_pd(Avx2.mm256_cmpeq_epi64(broadcast, Avx.mm256_loadu_si256(ptr_v256++))));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse4_1.cmpeq_epi64(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256))));
 
@@ -1343,7 +1535,7 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(ulong*)ptr_v256 == value;
                     countTotal += *(byte*)&areEqual;
@@ -1396,28 +1588,32 @@ Assert.IsNonNegative(length);
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse4_1.cmpeq_epi64(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                    length -= 2;
 
-                    if (length >= 2)
+                    if (Hint.Likely((int)length >= 2 * 2))
                     {
                         countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse4_1.cmpeq_epi64(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                        length -= 2;
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 3 * 2))
                         {
                             countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse4_1.cmpeq_epi64(broadcast, Sse2.loadu_si128(ptr_v128++))));
-                            length -= 2;
+                            length -= 3 * 2;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 2;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 2;
+                    }
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(ulong*)ptr_v128 == value;
                     countTotal += *(byte*)&areEqual;
@@ -1450,12 +1646,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<ulong> array, int index, ulong value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<ulong> array, int index, int numEntries, ulong value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1468,12 +1668,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<ulong> array, int index, ulong value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<ulong> array, int index, int numEntries, ulong value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1486,12 +1690,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<ulong> array, int index, ulong value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<ulong> array, int index, int numEntries, ulong value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1513,12 +1721,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<sbyte> array, int index, sbyte value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<sbyte> array, int index, int numEntries, sbyte value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1531,12 +1743,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<sbyte> array, int index, sbyte value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<sbyte> array, int index, int numEntries, sbyte value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1549,12 +1765,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<sbyte> array, int index, sbyte value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<sbyte> array, int index, int numEntries, sbyte value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1576,12 +1796,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<short> array, int index, short value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<short> array, int index, int numEntries, short value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1594,12 +1818,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<short> array, int index, short value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<short> array, int index, int numEntries, short value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1612,12 +1840,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<short> array, int index, short value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<short> array, int index, int numEntries, short value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1639,12 +1871,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<int> array, int index, int value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<int> array, int index, int numEntries, int value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1657,12 +1893,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<int> array, int index, int value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<int> array, int index, int numEntries, int value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1675,12 +1915,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<int> array, int index, int value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<int> array, int index, int numEntries, int value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1702,12 +1946,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<long> array, int index, long value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<long> array, int index, int numEntries, long value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1720,12 +1968,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<long> array, int index, long value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<long> array, int index, int numEntries, long value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1738,12 +1990,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<long> array, int index, long value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<long> array, int index, int numEntries, long value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1797,29 +2053,33 @@ Assert.IsFalse(math.isnan(value));
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     countTotal += (uint)math.countbits(Avx.mm256_movemask_ps(Avx.mm256_cmp_ps(broadcast, Avx.mm256_loadu_si256(ptr_v256++), (int)Avx.CMP.EQ_OQ)));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         countTotal += (uint)math.countbits(Avx.mm256_movemask_ps(Avx.mm256_cmp_ps(broadcast, Avx.mm256_loadu_si256(ptr_v256++), (int)Avx.CMP.EQ_OQ)));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             countTotal += (uint)math.countbits(Avx.mm256_movemask_ps(Avx.mm256_cmp_ps(broadcast, Avx.mm256_loadu_si256(ptr_v256++), (int)Avx.CMP.EQ_OQ)));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     countTotal += (uint)math.countbits(Sse.movemask_ps(Sse.cmpeq_ps(Avx.mm256_castsi256_si128(broadcast), Sse.loadu_ps(ptr_v256))));
 
@@ -1828,10 +2088,19 @@ Assert.IsFalse(math.isnan(value));
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse.movemask_ps(Sse.cmpeq_ps(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
-                    mask &= 0b0011;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b0011;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -1839,7 +2108,7 @@ Assert.IsFalse(math.isnan(value));
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(float*)ptr_v256 == value;
                     countTotal += *(byte*)&areEqual;
@@ -1892,31 +2161,44 @@ Assert.IsFalse(math.isnan(value));
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     countTotal += (uint)math.countbits(Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse.loadu_ps(ptr_v128++))));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         countTotal += (uint)math.countbits(Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse.loadu_ps(ptr_v128++))));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             countTotal += (uint)math.countbits(Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse.loadu_ps(ptr_v128++))));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     int mask = Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-                    mask &= 0b0011;
+
+                    if (Constant.IsConstantExpression(value) && value != 0)
+                    {
+                        ;
+                    }
+                    else
+                    {
+                        mask &= 0b0011;
+                    }
+
                     countTotal += (uint)math.countbits(mask);
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
@@ -1924,7 +2206,7 @@ Assert.IsFalse(math.isnan(value));
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(float*)ptr_v128 == value;
                     countTotal += *(byte*)&areEqual;
@@ -1957,12 +2239,16 @@ Assert.IsFalse(math.isnan(value));
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<float> array, int index, float value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<float> array, int index, int numEntries, float value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1975,12 +2261,16 @@ Assert.IsFalse(math.isnan(value));
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<float> array, int index, float value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<float> array, int index, int numEntries, float value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -1993,12 +2283,16 @@ Assert.IsFalse(math.isnan(value));
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<float> array, int index, float value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<float> array, int index, int numEntries, float value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -2052,28 +2346,32 @@ Assert.IsFalse(math.isnan(value));
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     countTotal += (uint)math.countbits(Avx.mm256_movemask_pd(Avx.mm256_cmp_pd(broadcast, Avx.mm256_loadu_pd(ptr_v256++), (int)Avx.CMP.EQ_OQ)));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         countTotal += (uint)math.countbits(Avx.mm256_movemask_pd(Avx.mm256_cmp_pd(broadcast, Avx.mm256_loadu_pd(ptr_v256++), (int)Avx.CMP.EQ_OQ)));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             countTotal += (uint)math.countbits(Avx.mm256_movemask_pd(Avx.mm256_cmp_pd(broadcast, Avx.mm256_loadu_pd(ptr_v256++), (int)Avx.CMP.EQ_OQ)));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse2.cmpeq_pd(Avx.mm256_castpd256_pd128(broadcast), Sse.loadu_ps(ptr_v256))));
 
@@ -2082,7 +2380,7 @@ Assert.IsFalse(math.isnan(value));
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(double*)ptr_v256 == value;
                     countTotal += *(byte*)&areEqual;
@@ -2135,28 +2433,32 @@ Assert.IsFalse(math.isnan(value));
                 countTotal = (count0 + count1) + (count2 + count3);
 
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse2.cmpeq_pd(broadcast, Sse.loadu_ps(ptr_v128++))));
-                    length -= 2;
 
-                    if (length >= 2)
+                    if (Hint.Likely((int)length >= 2 * 2))
                     {
                         countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse2.cmpeq_pd(broadcast, Sse.loadu_ps(ptr_v128++))));
-                        length -= 2;
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 3 * 2))
                         {
                             countTotal += (uint)math.countbits(Sse2.movemask_pd(Sse2.cmpeq_pd(broadcast, Sse.loadu_ps(ptr_v128++))));
-                            length -= 2;
+                            length -= 3 * 2;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 2;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 2;
+                    }
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     bool areEqual = *(double*)ptr_v128 == value;
                     countTotal += *(byte*)&areEqual;
@@ -2189,12 +2491,16 @@ Assert.IsFalse(math.isnan(value));
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<double> array, int index, double value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeArray<double> array, int index, int numEntries, double value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -2207,12 +2513,16 @@ Assert.IsFalse(math.isnan(value));
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<double> array, int index, double value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeList<double> array, int index, int numEntries, double value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
 
@@ -2225,12 +2535,16 @@ Assert.IsFalse(math.isnan(value));
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<double> array, int index, double value)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Count(this NativeSlice<double> array, int index, int numEntries, double value)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value);
         }
     }

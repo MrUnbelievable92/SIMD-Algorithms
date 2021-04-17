@@ -39,30 +39,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx2.mm256_min_epu8(acc2, acc3);
                 acc0 = Avx2.mm256_min_epu8(acc0, acc2);
 
-                if (length >= 32)
+                if (Hint.Likely((int)length >= 32))
                 {
                     acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 32;
 
-                    if (length >= 32)
+                    if (Hint.Likely((int)length >= 2 * 32))
                     {
                         acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 32;
 
-                        if (length >= 32)
+                        if (Hint.Likely((int)length >= 3 * 32))
                         {
                             acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 32;
+                            length -= 3 * 32;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 32;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 32;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse2.min_epu8(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     acc128 = Sse2.min_epu8(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -73,7 +77,7 @@ Assert.IsNonNegative(length);
                 v128 cmp = default(v128);
                 acc128 = Sse2.min_epu8(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc128 = Sse2.min_epu8(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -82,7 +86,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse2.min_epu8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse2.min_epu8(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -91,7 +95,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse2.min_epu8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse2.min_epu8(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
                     ptr_v256 = (v256*)((short*)ptr_v256 + 1);
@@ -100,7 +104,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse2.min_epu8(acc128, Sse2.bsrli_si128(acc128, 1 * sizeof(byte)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Sse2.min_epu8(acc128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).Byte0;
                 }
@@ -117,7 +121,7 @@ Assert.IsNonNegative(length);
                 v128 acc2 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
                 v128 acc3 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
 
-                while (length >= 64)
+                while (Hint.Likely(length >= 64))
                 {
                     acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
                     acc1 = Sse2.min_epu8(acc1, Sse2.loadu_si128(ptr_v128++));
@@ -131,31 +135,35 @@ Assert.IsNonNegative(length);
                 acc2 = Sse2.min_epu8(acc2, acc3);
                 acc0 = Sse2.min_epu8(acc0, acc2);
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
                 }
                 else { }
 
                 v128 cmp = default(v128);
                 acc0 = Sse2.min_epu8(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Sse2.min_epu8(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -165,7 +173,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse2.min_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Sse2.min_epu8(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
@@ -175,7 +183,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse2.min_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Sse2.min_epu8(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
                     ptr_v128 = (v128*)((short*)ptr_v128 + 1);
@@ -184,7 +192,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse2.min_epu8(acc0, Sse2.bsrli_si128(acc0, 1 * sizeof(byte)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
@@ -222,12 +230,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Minimum(this NativeArray<byte> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Minimum(this NativeArray<byte> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -240,12 +252,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Minimum(this NativeList<byte> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Minimum(this NativeList<byte> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -258,12 +274,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Minimum(this NativeSlice<byte> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte SIMD_Minimum(this NativeSlice<byte> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -315,30 +335,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx2.mm256_min_epu16(acc2, acc3);
                 acc0 = Avx2.mm256_min_epu16(acc0, acc2);
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse4_1.min_epu16(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc128 = Sse4_1.min_epu16(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -349,7 +373,7 @@ Assert.IsNonNegative(length);
                 v128 cmp = default(v128);
                 acc128 = Sse4_1.min_epu16(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse4_1.min_epu16(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -358,7 +382,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epu16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse4_1.min_epu16(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -367,7 +391,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epu16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Sse4_1.min_epu16(acc128, Sse2.insert_epi16(cmp, *(ushort*)ptr_v256, 0)).UShort0;
                 }
@@ -384,7 +408,7 @@ Assert.IsNonNegative(length);
                 v128 acc2 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
                 v128 acc3 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
 
-                while (length >= 32)
+                while (Hint.Likely(length >= 32))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
                     acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
@@ -398,31 +422,35 @@ Assert.IsNonNegative(length);
                 acc2 = Min(acc2, acc3);
                 acc0 = Min(acc0, acc2);
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 + 8))
                         {
                             acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
                 v128 cmp = default(v128);
                 acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -432,7 +460,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Min(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
@@ -442,7 +470,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Min(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
@@ -480,12 +508,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Minimum(this NativeArray<ushort> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Minimum(this NativeArray<ushort> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -498,12 +530,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Minimum(this NativeList<ushort> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Minimum(this NativeList<ushort> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -516,12 +552,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Minimum(this NativeSlice<ushort> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ushort SIMD_Minimum(this NativeSlice<ushort> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -575,30 +615,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx2.mm256_min_epu32(acc2, acc3);
                 acc0 = Avx2.mm256_min_epu32(acc0, acc2);
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse4_1.min_epu32(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse4_1.min_epu32(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -607,7 +651,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epu32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse4_1.min_epu32(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -616,7 +660,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epu32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Sse4_1.min_epu32(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).UInt0;
                 }
@@ -633,7 +677,7 @@ Assert.IsNonNegative(length);
                 v128 acc2 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
                 v128 acc3 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
 
-                while (length >= 16)
+                while (Hint.Likely(length >= 16))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
                     acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
@@ -647,31 +691,35 @@ Assert.IsNonNegative(length);
                 acc2 = Min(acc2, acc3);
                 acc0 = Min(acc0, acc2);
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
 
                 acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -681,7 +729,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).UInt0;
                 }
@@ -712,12 +760,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Minimum(this NativeArray<uint> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Minimum(this NativeArray<uint> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -730,12 +782,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Minimum(this NativeList<uint> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Minimum(this NativeList<uint> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -748,12 +804,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Minimum(this NativeSlice<uint> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SIMD_Minimum(this NativeSlice<uint> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -817,37 +877,41 @@ Assert.IsNonNegative(length);
                 acc2 = Min256(acc2, acc3, mask);
                 acc0 = Min256(acc0, acc2, mask);
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Min128(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1), Avx.mm256_castsi256_si128(mask));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Min128(acc128, Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return math.min(*(ulong*)ptr_v256, math.min(acc128.ULong0, acc128.ULong1));
                 }
@@ -880,28 +944,32 @@ Assert.IsNonNegative(length);
                 acc2 = Min128(acc2, acc3, mask);
                 acc0 = Min128(acc0, acc2, mask);
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
-                    length -= 2;
 
-                    if (length >= 2)
+                    if (Hint.Likely((int)length >= 2 * 2))
                     {
                         acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
-                        length -= 2;
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 3 * 2))
                         {
                             acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
-                            length -= 2;
+                            length -= 3 * 2;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 2;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 2;
+                    }
                 }
                 else { }
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return math.min(*(ulong*)ptr_v128, math.min(acc0.ULong0, acc0.ULong1));
                 }
@@ -932,12 +1000,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Minimum(this NativeArray<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Minimum(this NativeArray<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -950,12 +1022,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Minimum(this NativeList<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Minimum(this NativeList<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -968,12 +1044,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Minimum(this NativeSlice<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Minimum(this NativeSlice<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1024,30 +1104,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx2.mm256_min_epi8(acc2, acc3);
                 acc0 = Avx2.mm256_min_epi8(acc0, acc2);
 
-                if (length >= 32)
+                if (Hint.Likely((int)length >= 32))
                 {
                     acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 32;
 
-                    if (length >= 32)
+                    if (Hint.Likely((int)length >= 2 * 32))
                     {
                         acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 32;
 
-                        if (length >= 32)
+                        if (Hint.Likely((int)length >= 3 * 32))
                         {
                             acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 32;
+                            length -= 3 * 32;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 32;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 32;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse4_1.min_epi8(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     acc128 = Sse4_1.min_epi8(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -1058,7 +1142,7 @@ Assert.IsNonNegative(length);
                 v128 cmp = default(v128);
                 acc128 = Sse4_1.min_epi8(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc128 = Sse4_1.min_epi8(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -1067,7 +1151,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epi8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse4_1.min_epi8(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -1076,7 +1160,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epi8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse4_1.min_epi8(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
                     ptr_v256 = (v256*)((short*)ptr_v256 + 1);
@@ -1085,7 +1169,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epi8(acc128, Sse2.bsrli_si128(acc128, 1 * sizeof(sbyte)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return (sbyte)math.min((int)acc128.SByte0, (int)(*(sbyte*)ptr_v256));
                 }
@@ -1102,7 +1186,7 @@ Assert.IsNonNegative(length);
                 v128 acc2 = Sse2.set1_epi8(sbyte.MaxValue);
                 v128 acc3 = Sse2.set1_epi8(sbyte.MaxValue);
 
-                while (length >= 64)
+                while (Hint.Likely(length >= 64))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
                     acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
@@ -1116,31 +1200,35 @@ Assert.IsNonNegative(length);
                 acc2 = Min(acc2, acc3);
                 acc0 = Min(acc0, acc2);
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
                 }
                 else { }
 
                 v128 cmp = default(v128);
                 acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -1150,7 +1238,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse2.min_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
@@ -1160,7 +1248,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Min(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Min(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
                     ptr_v128 = (v128*)((short*)ptr_v128 + 1);
@@ -1169,7 +1257,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Min(acc0, Sse2.bsrli_si128(acc0, 1 * sizeof(sbyte)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
@@ -1207,12 +1295,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Minimum(this NativeArray<sbyte> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Minimum(this NativeArray<sbyte> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1225,12 +1317,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Minimum(this NativeList<sbyte> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Minimum(this NativeList<sbyte> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1243,12 +1339,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Minimum(this NativeSlice<sbyte> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static sbyte SIMD_Minimum(this NativeSlice<sbyte> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1280,30 +1380,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx2.mm256_min_epi16(acc2, acc3);
                 acc0 = Avx2.mm256_min_epi16(acc0, acc2);
 
-                if (length >= 16)
+                if (Hint.Likely((int)length >= 16))
                 {
                     acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 16;
 
-                    if (length >= 16)
+                    if (Hint.Likely((int)length >= 2 * 16))
                     {
                         acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 16;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 3 * 16))
                         {
                             acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 16;
+                            length -= 3 * 16;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 16;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 16;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse2.min_epi16(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc128 = Sse2.min_epi16(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -1314,7 +1418,7 @@ Assert.IsNonNegative(length);
                 v128 cmp = default(v128);
                 acc128 = Sse2.min_epi16(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse2.min_epi16(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -1323,7 +1427,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse2.min_epi16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse2.min_epi16(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
@@ -1332,7 +1436,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse2.min_epi16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Sse2.min_epi16(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0)).SShort0;
                 }
@@ -1349,7 +1453,7 @@ Assert.IsNonNegative(length);
                 v128 acc2 = Sse2.set1_epi16(short.MaxValue);
                 v128 acc3 = Sse2.set1_epi16(short.MaxValue);
 
-                while (length >= 32)
+                while (Hint.Likely(length >= 32))
                 {
                     acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
                     acc1 = Sse2.min_epi16(acc1, Sse2.loadu_si128(ptr_v128++));
@@ -1363,31 +1467,35 @@ Assert.IsNonNegative(length);
                 acc2 = Sse2.min_epi16(acc2, acc3);
                 acc0 = Sse2.min_epi16(acc0, acc2);
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
                 v128 cmp = default(v128);
                 acc0 = Sse2.min_epi16(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Sse2.min_epi16(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -1397,7 +1505,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse2.min_epi16(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Sse2.min_epi16(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
@@ -1407,7 +1515,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse2.min_epi16(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Sse2.min_epi16(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0)).SShort0;
                 }
@@ -1438,12 +1546,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Minimum(this NativeArray<short> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Minimum(this NativeArray<short> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1456,12 +1568,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Minimum(this NativeList<short> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Minimum(this NativeList<short> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1474,12 +1590,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Minimum(this NativeSlice<short> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short SIMD_Minimum(this NativeSlice<short> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1530,30 +1650,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx2.mm256_min_epi32(acc2, acc3);
                 acc0 = Avx2.mm256_min_epi32(acc0, acc2);
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse4_1.min_epi32(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse4_1.min_epi32(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -1562,7 +1686,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epi32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse4_1.min_epi32(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
@@ -1571,7 +1695,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse4_1.min_epi32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Sse4_1.min_epi32(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).SInt0;
                 }
@@ -1588,7 +1712,7 @@ Assert.IsNonNegative(length);
                 v128 acc2 = Sse2.set1_epi32(int.MaxValue);
                 v128 acc3 = Sse2.set1_epi32(int.MaxValue);
 
-                while (length >= 16)
+                while (Hint.Likely(length >= 16))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
                     acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
@@ -1602,30 +1726,34 @@ Assert.IsNonNegative(length);
                 acc2 = Min(acc2, acc3);
                 acc0 = Min(acc0, acc2);
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
                 acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -1635,7 +1763,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).SInt0;
                 }
@@ -1666,12 +1794,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Minimum(this NativeArray<int> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Minimum(this NativeArray<int> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1684,12 +1816,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Minimum(this NativeList<int> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Minimum(this NativeList<int> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1708,6 +1844,8 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Minimum(this NativeSlice<int> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1749,30 +1887,34 @@ Assert.IsNonNegative(length);
                 acc2 = Min256(acc2, acc3);
                 acc0 = Min256(acc0, acc2);
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Min128(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Min128(acc128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -1781,7 +1923,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Min128(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return math.min(acc128.SLong0, *(long*)ptr_v256);
                 }
@@ -1812,20 +1954,34 @@ Assert.IsNonNegative(length);
                 acc2 = Min128(acc2, acc3);
                 acc0 = Min128(acc0, acc2);
 
-                for (int i = 0; i < 3; i++)
+                if (Hint.Likely((int)length >= 2))
                 {
-                    if (length >= 2)
+                    acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
+
+                    if (Hint.Likely((int)length >= 2 * 2))
                     {
                         acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
 
+                        if (Hint.Likely((int)length >= 3 * 2))
+                        {
+                            acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
+                            length -= 3 * 2;
+                        }
+                        else
+                        {
+                            length -= 2 * 2;
+                        }
+                    }
+                    else
+                    {
                         length -= 2;
                     }
-                    else break;
                 }
+                else { }
 
                 acc0 = Min128(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     return math.min(acc0.SLong0, *(long*)ptr_v128);
                 }
@@ -1856,12 +2012,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Minimum(this NativeArray<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Minimum(this NativeArray<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1874,12 +2034,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Minimum(this NativeList<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Minimum(this NativeList<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1898,6 +2062,8 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Minimum(this NativeSlice<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -1915,7 +2081,7 @@ Assert.IsNonNegative(length);
                 v256 acc2 = new v256(float.PositiveInfinity);
                 v256 acc3 = new v256(float.PositiveInfinity);
 
-                while (length >= 32)
+                while (Hint.Likely(length >= 32))
                 {
                     acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
                     acc1 = Avx.mm256_min_ps(acc1, Avx.mm256_loadu_ps(ptr_v256++));
@@ -1929,30 +2095,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx.mm256_min_ps(acc2, acc3);
                 acc0 = Avx.mm256_min_ps(acc0, acc2);
 
-                if (length >= 8)
+                if (Hint.Likely((int)length >= 8))
                 {
                     acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
-                    length -= 8;
 
-                    if (length >= 8)
+                    if (Hint.Likely((int)length >= 2 * 8))
                     {
                         acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
-                        length -= 8;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
-                            length -= 8;
+                            length -= 3 * 8;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 8;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 8;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse.min_ps(Avx.mm256_castps256_ps128(acc0), Avx.mm256_extractf128_ps(acc0, 1));
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc128 = Sse.min_ps(acc128, Sse.loadu_ps(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -1962,7 +2132,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse.min_ps(acc128, Avx.permute_ps(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse.min_ps(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
 
@@ -1972,7 +2142,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse.min_ps(acc128, Avx.permute_ps(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     acc128 = Sse.min_ss(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                 }
@@ -2001,30 +2171,34 @@ Assert.IsNonNegative(length);
                 acc2 = Sse.min_ps(acc2, acc3);
                 acc0 = Sse.min_ps(acc0, acc2);
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
                 acc0 = Sse.min_ps(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Sse.min_ps(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
@@ -2034,7 +2208,7 @@ Assert.IsNonNegative(length);
 
                 acc0 = Sse.min_ps(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     acc0 = Sse.min_ss(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
                 }
@@ -2063,12 +2237,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Minimum(this NativeArray<float> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Minimum(this NativeArray<float> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2081,12 +2259,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Minimum(this NativeList<float> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Minimum(this NativeList<float> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2099,12 +2281,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Minimum(this NativeSlice<float> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Minimum(this NativeSlice<float> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2136,30 +2322,34 @@ Assert.IsNonNegative(length);
                 acc2 = Avx.mm256_min_pd(acc2, acc3);
                 acc0 = Avx.mm256_min_pd(acc0, acc2);
 
-                if (length >= 4)
+                if (Hint.Likely((int)length >= 4))
                 {
                     acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
-                    length -= 4;
 
-                    if (length >= 4)
+                    if (Hint.Likely((int)length >= 2 * 4))
                     {
                         acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
-                        length -= 4;
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 3 * 4))
                         {
                             acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
-                            length -= 4;
+                            length -= 3 * 4;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 4;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 4;
+                    }
                 }
                 else { }
 
                 v128 acc128 = Sse2.min_pd(Avx.mm256_castpd256_pd128(acc0), Avx.mm256_extractf128_pd(acc0, 1));
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc128 = Sse2.min_pd(acc128, Sse.loadu_ps(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
@@ -2169,7 +2359,7 @@ Assert.IsNonNegative(length);
 
                 acc128 = Sse2.min_pd(acc128, Avx.permute_pd(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     acc128 = Sse2.min_sd(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                 }
@@ -2198,30 +2388,34 @@ Assert.IsNonNegative(length);
                 acc2 = Sse2.min_pd(acc2, acc3);
                 acc0 = Sse2.min_pd(acc0, acc2);
 
-                if (length >= 2)
+                if (Hint.Likely((int)length >= 2))
                 {
                     acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
-                    length -= 2;
 
-                    if (length >= 2)
+                    if (Hint.Likely((int)length >= 2 * 2))
                     {
                         acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
-                        length -= 2;
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 3 * 2))
                         {
                             acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
-                            length -= 2;
+                            length -= 3 * 2;
                         }
-                        else { }
+                        else
+                        {
+                            length -= 2 * 2;
+                        }
                     }
-                    else { }
+                    else
+                    {
+                        length -= 2;
+                    }
                 }
                 else { }
 
                 acc0 = Sse2.min_pd(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                if (length != 0)
+                if (Hint.Likely(length != 0))
                 {
                     acc0 = Sse2.min_sd(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
                 }
@@ -2250,12 +2444,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Minimum(this NativeArray<double> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Minimum(this NativeArray<double> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2268,12 +2466,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Minimum(this NativeList<double> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Minimum(this NativeList<double> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2286,12 +2488,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Minimum(this NativeSlice<double> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Minimum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Minimum(this NativeSlice<double> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Minimum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
     }

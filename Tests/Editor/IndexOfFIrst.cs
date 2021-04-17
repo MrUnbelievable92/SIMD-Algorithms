@@ -3,7 +3,7 @@ using Unity.Collections;
 
 namespace SIMDAlgorithms.Tests
 {
-    public static class IndexOf
+    public static class IndexOfFirst
     {
         [Test]
         public static void Byte()
@@ -32,6 +32,8 @@ namespace SIMDAlgorithms.Tests
                         {
                             noOccurrence &= array[k] != test;
                         }
+
+                        Assert.IsTrue(noOccurrence);
                     }
                     else
                     {
@@ -82,6 +84,8 @@ namespace SIMDAlgorithms.Tests
                         {
                             noOccurrence &= array[k] != test;
                         }
+
+                        Assert.IsTrue(noOccurrence);
                     }
                     else
                     {
@@ -132,6 +136,8 @@ namespace SIMDAlgorithms.Tests
                         {
                             noOccurrence &= array[k] != test;
                         }
+
+                        Assert.IsTrue(noOccurrence);
                     }
                     else
                     {
@@ -182,6 +188,8 @@ namespace SIMDAlgorithms.Tests
                         {
                             noOccurrence &= array[k] != test;
                         }
+
+                        Assert.IsTrue(noOccurrence);
                     }
                     else
                     {
@@ -232,6 +240,8 @@ namespace SIMDAlgorithms.Tests
                         {
                             noOccurrence &= array[k] != test;
                         }
+
+                        Assert.IsTrue(noOccurrence);
                     }
                     else
                     {
@@ -282,6 +292,8 @@ namespace SIMDAlgorithms.Tests
                         {
                             noOccurrence &= array[k] != test;
                         }
+
+                        Assert.IsTrue(noOccurrence);
                     }
                     else
                     {

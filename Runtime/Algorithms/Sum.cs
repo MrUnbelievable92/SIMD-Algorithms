@@ -4,6 +4,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Burst;
 using DevTools;
 
 using static Unity.Burst.Intrinsics.X86;
@@ -65,31 +66,35 @@ Assert.IsNonNegative(length);
                         v256 add2 = Avx2.mm256_add_epi64(add0, add1);
 
 
-                        if (length >= 32)
+                        if (Hint.Likely((int)length >= 32))
                         {
                             add2 = Avx2.mm256_add_epi64(add2, Avx2.mm256_sad_epu8(ZERO, Avx.mm256_loadu_si256(address++)));
-                            length -= 32;
 
-                            if (length >= 32)
+                            if (Hint.Likely((int)length >= 2 * 32))
                             {
                                 add2 = Avx2.mm256_add_epi64(add2, Avx2.mm256_sad_epu8(ZERO, Avx.mm256_loadu_si256(address++)));
-                                length -= 32;
 
-                                if (length >= 32)
+                                if (Hint.Likely((int)length >= 3 * 32))
                                 {
                                     add2 = Avx2.mm256_add_epi64(add2, Avx2.mm256_sad_epu8(ZERO, Avx.mm256_loadu_si256(address++)));
-                                    length -= 32;
+                                    length -= 3 * 32;
                                 }
-                                else { }
+                                else
+                                {
+                                    length -= 2 * 32;
+                                }
                             }
-                            else { }
+                            else
+                            {
+                                length -= 32;
+                            }
                         }
                         else { }
 
                         v128 csum0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
 
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 16))
                         {
                             csum0 = Sse2.add_epi64(csum0, Sse2.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Sse2.loadu_si128(address)));
 
@@ -98,7 +103,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             csum0 = Sse2.add_epi64(csum0, Sse2.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Sse2.cvtsi64x_si128(*(long*)address)));
                             length -= 8;
@@ -106,7 +111,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             csum0 = Sse2.add_epi64(csum0, Sse2.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Sse2.cvtsi32_si128(*(int*)address)));
                             length -= 4;
@@ -118,23 +123,21 @@ Assert.IsNonNegative(length);
                         ulong sum = csum.ULong0;
 
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(byte*)address;
                             length--;
-                            address = (v256*)((byte*)address + 1);
 
-                            if (length != 0)
+                            if (Hint.Likely(length != 0))
                             {
+                                address = (v256*)((byte*)address + 1);
                                 sum += *(byte*)address;
                                 length--;
-                                address = (v256*)((byte*)address + 1);
 
-                                if (length != 0)
+                                if (Hint.Likely(length != 0))
                                 {
-                                    sum += *(byte*)address;
-                                    length--;
                                     address = (v256*)((byte*)address + 1);
+                                    sum += *(byte*)address;
                                 }
                                 else { }
                             }
@@ -172,29 +175,33 @@ Assert.IsNonNegative(length);
 
                         acc0 = Sse2.add_epi64(Sse2.add_epi64(acc0, acc1), Sse2.add_epi64(acc2, acc3));
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 16))
                         {
                             acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++)));
-                            length -= 16;
 
-                            if (length >= 16)
+                            if (Hint.Likely((int)length >= 2 * 16))
                             {
                                 acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++)));
-                                length -= 16;
 
-                                if (length >= 16)
+                                if (Hint.Likely((int)length >= 3 * 16))
                                 {
                                     acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++)));
-                                    length -= 16;
+                                    length -= 3 * 16;
                                 }
-                                else { }
+                                else
+                                {
+                                    length -= 2 * 16;
+                                }
                             }
-                            else { }
+                            else
+                            {
+                                length -= 16;
+                            }
                         }
                         else { }
 
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.cvtsi64x_si128(*(long*)address)));
                             length -= 8;
@@ -202,7 +209,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.cvtsi32_si128(*(int*)address)));
                             length -= 4;
@@ -214,23 +221,21 @@ Assert.IsNonNegative(length);
                         ulong sum = csum.ULong0;
 
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(byte*)address;
                             length--;
-                            address = (v128*)((byte*)address + 1);
 
-                            if (length != 0)
+                            if (Hint.Likely(length != 0))
                             {
+                                address = (v128*)((byte*)address + 1);
                                 sum += *(byte*)address;
                                 length--;
-                                address = (v128*)((byte*)address + 1);
 
-                                if (length != 0)
+                                if (Hint.Likely(length != 0))
                                 {
-                                    sum += *(byte*)address;
-                                    length--;
                                     address = (v128*)((byte*)address + 1);
+                                    sum += *(byte*)address;
                                 }
                                 else { }
                             }
@@ -273,12 +278,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<byte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -291,12 +300,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<byte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -309,12 +322,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<byte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -324,18 +341,10 @@ Assert.IsNonNegative(length);
         {
 Assert.IsNonNegative(length);
 
+            range = (range == TypeCode.Empty) ? GetSafeRange.Summation(TypeCode.UInt16, length) : range;
+
             switch (range)
             {
-                case TypeCode.Empty:
-                {
-                    switch (GetSafeRange.Summation(TypeCode.UInt16, length))
-                    {
-                        case TypeCode.UInt32: goto case TypeCode.UInt32;
-                        case TypeCode.UInt64: goto case TypeCode.UInt64;
-                    }
-
-                    goto case TypeCode.UInt16;
-                }
                 case TypeCode.UInt16:
                 {
                     ushort sum = 0;
@@ -366,7 +375,7 @@ Assert.IsNonNegative(length);
                         v256 longs = default(v256);
                         
                         
-                        while (length >= 32)
+                        while (Hint.Likely(length >= 32))
                         {
                             int iterations = 0;
                             v256 acc0 = default(v256);
@@ -404,31 +413,35 @@ Assert.IsNonNegative(length);
                         }
                         
                             
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             v256 ints = Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++));
-                            length -= 8;
 
-                            if (length >= 8)
+                            if (Hint.Likely((int)length >= 2 * 8))
                             {
                                 ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
-                                length -= 8;
 
-                                if (length >= 8)
+                                if (Hint.Likely((int)length >= 3 * 8))
                                 {
                                     ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
-                                    length -= 8;
+                                    length -= 3 * 8;
                                 }
-                                else { }
+                                else
+                                {
+                                    length -= 2 * 8;
+                                }
                             }
-                            else { }
+                            else
+                            {
+                                length -= 8;
+                            }
 
                             ints = Avx2.mm256_cvtepu32_epi64(Sse2.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1)));
                             longs = Avx2.mm256_add_epi64(longs, ints);
                         }
                         else { }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepu16_epi64(Sse2.cvtsi64x_si128(*(long*)address)));
                             length -= 4;
@@ -438,7 +451,7 @@ Assert.IsNonNegative(length);
 
                         v128 csum_0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             csum_0 = Sse2.add_epi64(csum_0, Sse4_1.cvtepu16_epi64(Sse2.cvtsi32_si128(*(int*)address)));
                             length -= 2;
@@ -448,7 +461,7 @@ Assert.IsNonNegative(length);
                         v128 csum_1 = Sse2.add_epi64(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 3, 2)));
                         ulong sum = csum_1.ULong0;
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(ushort*)address;
                         }
@@ -463,7 +476,7 @@ Assert.IsNonNegative(length);
                         v128 ZERO = default(v128);
                         
                         
-                        while (length >= 16)
+                        while (Hint.Likely(length >= 16))
                         {
                             int iterations = 0;
                             v128 acc0 = default(v128);
@@ -534,7 +547,7 @@ Assert.IsNonNegative(length);
 
                         v128 ints;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             v128 load = Sse2.loadu_si128(address++);
 
@@ -556,7 +569,7 @@ Assert.IsNonNegative(length);
                             ints = default(v128);
                         }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             if (Sse4_1.IsSse41Supported)
                             {
@@ -572,7 +585,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             if (Sse4_1.IsSse41Supported)
                             {
@@ -600,7 +613,7 @@ Assert.IsNonNegative(length);
                         v128 csum = Sse2.add_epi64(longs, Sse2.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
                         ulong sum = csum.ULong0;
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(ushort*)address;
                         }
@@ -640,12 +653,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<ushort> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -658,12 +675,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<ushort> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -676,12 +697,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<ushort> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -736,12 +761,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<uint> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -754,12 +783,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<uint> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -772,12 +805,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<uint> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -806,12 +843,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -824,12 +865,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -842,12 +887,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<ulong> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<ulong> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -857,19 +906,10 @@ Assert.IsNonNegative(length);
         {
 Assert.IsNonNegative(length);
 
+            range = (range == TypeCode.Empty) ? GetSafeRange.Summation(TypeCode.SByte, length) : range;
+
             switch (range)
             {
-                case TypeCode.Empty:
-                {
-                    switch (GetSafeRange.Summation(TypeCode.SByte, length))
-                    {
-                        case TypeCode.Int16: goto case TypeCode.Int16;
-                        case TypeCode.Int32: goto case TypeCode.Int32;
-                        case TypeCode.Int64: goto case TypeCode.Int64;
-                    }
-
-                    goto case TypeCode.SByte;
-                }
                 case TypeCode.SByte:
                 {
                     sbyte sum = 0;
@@ -900,7 +940,7 @@ Assert.IsNonNegative(length);
                         v256 ints = default(v256);
                 
                 
-                        while (length >= 64)
+                        while (Hint.Likely(length >= 64))
                         {
                             int iterations = 0;
                             v256 acc0 = default(v256);
@@ -938,30 +978,34 @@ Assert.IsNonNegative(length);
                         }
                         
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 16))
                         {
                             v256 shorts = Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++));
-                            length -= 16;
 
-                            if (length >= 16)
+                            if (Hint.Likely((int)length >= 2 * 16))
                             {
                                 shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                length -= 16;
                             
-                                if (length >= 16)
+                                if (Hint.Likely((int)length >= 3 * 16))
                                 {
                                     shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                    length -= 16;
+                                    length -= 3 * 16;
                                 }
-                                else { }
+                                else
+                                {
+                                    length -= 2 * 16;
+                                }
                             }
-                            else { }
+                            else
+                            {
+                                length -= 16;
+                            }
                             
                             ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi16_epi32(Sse2.add_epi16(Avx.mm256_castsi256_si128(shorts), Avx2.mm256_extracti128_si256(shorts, 1))));
                         }
                         else { }
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi8_epi32(Sse2.cvtsi64x_si128(*(long*)address)));
 
@@ -972,7 +1016,7 @@ Assert.IsNonNegative(length);
 
                         v128 csum_0 = Sse2.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1));
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             csum_0 = Sse2.add_epi32(csum_0, Sse4_1.cvtepi8_epi32(Sse2.cvtsi32_si128(*(int*)address)));
 
@@ -983,7 +1027,7 @@ Assert.IsNonNegative(length);
 
                         v128 csum_1 = Sse2.add_epi32(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 3, 2)));
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             csum_1 = Sse2.add_epi32(csum_1, Sse4_1.cvtepi8_epi32(Sse2.cvtsi32_si128(*(ushort*)address)));
 
@@ -995,7 +1039,7 @@ Assert.IsNonNegative(length);
                         v128 csum_2 = Sse2.add_epi32(csum_1, Sse2.shuffle_epi32(csum_1, Sse.SHUFFLE(0, 0, 0, 1)));
                         int sum = csum_2.SInt0;
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(sbyte*)address;
                         }
@@ -1011,7 +1055,7 @@ Assert.IsNonNegative(length);
                         v128 ZERO = default(v128);
                 
                 
-                        while (length >= 32)
+                        while (Hint.Likely(length >= 32))
                         {
                             int iterations = 0;
                             v128 acc0 = default(v128);
@@ -1090,7 +1134,7 @@ Assert.IsNonNegative(length);
 
                         v128 shorts;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 16))
                         {
                             v128 load = Sse2.loadu_si128(address++);
 
@@ -1114,7 +1158,7 @@ Assert.IsNonNegative(length);
                             shorts = default(v128);
                         }
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             v128 load = Sse2.cvtsi64x_si128(*(long*)address);
 
@@ -1132,7 +1176,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             v128 load = Sse2.cvtsi32_si128(*(int*)address);
 
@@ -1150,7 +1194,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             v128 load = Sse2.cvtsi32_si128(*(ushort*)address);
 
@@ -1185,7 +1229,7 @@ Assert.IsNonNegative(length);
                         v128 csum_1 = Sse2.add_epi32(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 0, 1)));
                         int sum = csum_1.SInt0;
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(sbyte*)address;
                         }
@@ -1213,7 +1257,7 @@ Assert.IsNonNegative(length);
                         v128* address = (v128*)ptr;
                         v256 longs = default(v256);
 
-                        while (length >= 64)
+                        while (Hint.Likely(length >= 64))
                         {
                             int iterations_int = 0;
                             v256 ints0 = default(v256);
@@ -1279,24 +1323,28 @@ Assert.IsNonNegative(length);
 
                         v128 shortSum;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 16))
                         {
                             v256 shorts = Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++));
-                            length -= 16;
 
-                            if (length >= 16)
+                            if (Hint.Likely((int)length >= 2 * 16))
                             {
                                 shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                length -= 16;
 
-                                if (length >= 16)
+                                if (Hint.Likely((int)length >= 3 * 16))
                                 {
                                     shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                    length -= 16;
+                                    length -= 3 * 16;
                                 }
-                                else { }
+                                else
+                                {
+                                    length -= 2 * 16;
+                                }
                             }
-                            else { }
+                            else
+                            {
+                                length -= 16;
+                            }
 
                             shortSum = Sse2.add_epi16(Avx.mm256_castsi256_si128(shorts), Avx2.mm256_extracti128_si256(shorts, 1));
                         }
@@ -1305,7 +1353,7 @@ Assert.IsNonNegative(length);
                             shortSum = default(v128);
                         }
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             shortSum = Sse2.add_epi16(shortSum, Sse4_1.cvtepi8_epi16(Sse2.cvtsi64x_si128(*(long*)address)));
 
@@ -1314,7 +1362,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             shortSum = Sse2.add_epi16(shortSum, Sse4_1.cvtepi8_epi16(Sse2.cvtsi32_si128(*(int*)address)));
 
@@ -1323,7 +1371,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             shortSum = Sse2.add_epi16(shortSum, Sse4_1.cvtepi8_epi16(Sse2.cvtsi32_si128(*(ushort*)address)));
 
@@ -1340,7 +1388,7 @@ Assert.IsNonNegative(length);
                         long sum = csum_1.SLong0;
 
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(sbyte*)address;
                         }
@@ -1355,7 +1403,7 @@ Assert.IsNonNegative(length);
                         v128 longs = default(v128);
                         v128 ZERO = default(v128);
 
-                        while (length >= 32)
+                        while (Hint.Likely(length >= 32))
                         {
                             int iterations_int = 0;
                             v128 ints0 = default(v128);
@@ -1478,7 +1526,7 @@ Assert.IsNonNegative(length);
 
                         v128 shorts;
 
-                        if (length >= 16)
+                        if (Hint.Likely((int)length >= 16))
                         {
                             v128 load = Sse2.loadu_si128(address++);
 
@@ -1501,7 +1549,7 @@ Assert.IsNonNegative(length);
                             shorts = default(v128);
                         }
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             v128 load = Sse2.cvtsi64x_si128(*(long*)address);
                         
@@ -1519,7 +1567,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
                         
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             v128 load = Sse2.cvtsi32_si128(*(int*)address);
                         
@@ -1537,7 +1585,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
                         
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             v128 load = Sse2.cvtsi32_si128(*(ushort*)address);
                         
@@ -1576,7 +1624,7 @@ Assert.IsNonNegative(length);
                         v128 csum_0 = Sse2.add_epi64(longs, Sse2.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
                         long sum = csum_0.SLong0;
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(sbyte*)address;
                         }
@@ -1616,12 +1664,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<sbyte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -1634,12 +1686,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<sbyte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -1652,12 +1708,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<sbyte> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -1667,18 +1727,10 @@ Assert.IsNonNegative(length);
         {
 Assert.IsNonNegative(length);
 
+            range = (range == TypeCode.Empty) ? GetSafeRange.Summation(TypeCode.Int16, length) : range;
+
             switch (range)
             {
-                case TypeCode.Empty:
-                {
-                    switch (GetSafeRange.Summation(TypeCode.Int16, length))
-                    {
-                        case TypeCode.Int32: goto case TypeCode.Int32;
-                        case TypeCode.Int64: goto case TypeCode.Int64;
-                    }
-
-                    goto case TypeCode.Int16;
-                }
                 case TypeCode.Int16:
                 {
                     short sum = 0;
@@ -1709,7 +1761,7 @@ Assert.IsNonNegative(length);
                         v256 longs = default(v256);
                         
                         
-                        while (length >= 32)
+                        while (Hint.Likely(length >= 32))
                         {
                             int iterations = 0;
                             v256 acc0 = default(v256);
@@ -1747,31 +1799,35 @@ Assert.IsNonNegative(length);
                         }
 
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             v256 ints = Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++));
-                            length -= 8;
 
-                            if (length >= 8)
+                            if (Hint.Likely((int)length >= 2 * 8))
                             {
                                 ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
-                                length -= 8;
 
-                                if (length >= 8)
+                                if (Hint.Likely((int)length >= 3 * 8))
                                 {
                                     ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
-                                    length -= 8;
+                                    length -= 3 * 8;
                                 }
-                                else { }
+                                else
+                                {
+                                    length -= 2 * 8;
+                                }
                             }
-                            else { }
+                            else
+                            {
+                                length -= 8;
+                            }
 
                             v128 intSum = Sse2.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1));
                             longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepi32_epi64(intSum));
                         }
                         else { }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepi16_epi64(Sse2.cvtsi64x_si128(*(long*)address)));
 
@@ -1782,7 +1838,7 @@ Assert.IsNonNegative(length);
 
                         v128 csum_0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             csum_0 = Sse2.add_epi64(csum_0, Sse4_1.cvtepi16_epi64(Sse2.cvtsi32_si128(*(int*)address)));
 
@@ -1795,7 +1851,7 @@ Assert.IsNonNegative(length);
                         long sum = csum_1.SLong0;
 
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(short*)address;
                         }
@@ -1811,7 +1867,7 @@ Assert.IsNonNegative(length);
                         v128 ZERO = default(v128);
                         
                         
-                        while (length >= 16)
+                        while (Hint.Likely(length >= 16))
                         {
                             int iterations = 0;
                             v128 acc0 = default(v128);
@@ -1889,7 +1945,7 @@ Assert.IsNonNegative(length);
 
                         v128 ints;
 
-                        if (length >= 8)
+                        if (Hint.Likely((int)length >= 8))
                         {
                             v128 load = Sse2.loadu_si128(address++);
 
@@ -1913,7 +1969,7 @@ Assert.IsNonNegative(length);
                             ints = default(v128);
                         }
 
-                        if (length >= 4)
+                        if (Hint.Likely((int)length >= 4))
                         {
                             v128 load = Sse2.cvtsi64x_si128(*(long*)address);
 
@@ -1931,7 +1987,7 @@ Assert.IsNonNegative(length);
                         }
                         else { }
 
-                        if (length >= 2)
+                        if (Hint.Likely((int)length >= 2))
                         {
                             v128 load = Sse2.cvtsi32_si128(*(int*)address);
 
@@ -1966,7 +2022,7 @@ Assert.IsNonNegative(length);
                         long sum = csum_0.SLong0;
 
 
-                        if (length != 0)
+                        if (Hint.Likely(length != 0))
                         {
                             sum += *(short*)address;
                         }
@@ -2007,12 +2063,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<short> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -2025,12 +2085,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<short> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -2043,12 +2107,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<short> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -2103,12 +2171,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<int> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -2121,12 +2193,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<int> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -2139,12 +2215,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<int> array, int index, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
 
@@ -2173,12 +2253,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2191,12 +2275,16 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
@@ -2209,153 +2297,467 @@ Assert.IsNonNegative(length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<long> array, int index)
         {
+Assert.IsWithinArrayBounds(index, array.Length);
+
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<long> array, int index, int numEntries)
         {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(float* ptr, long length)
+        public static float SIMD_Sum(float* ptr, long length, FloatMode floatMode = FloatMode.Strict)
         {
 Assert.IsNonNegative(length);
 
-            float sum = 0;
-
-            for (long i = 0; Hint.Likely(i < length); i++)
+            switch (floatMode)
             {
-                sum += ptr[i];
+                case FloatMode.Fast:
+                {
+                    if (Avx.IsAvxSupported)
+                    {
+                        v256 acc0 = default(v256);
+                        v256 acc1 = default(v256);
+                        v256 acc2 = default(v256);
+                        v256 acc3 = default(v256);
+                        v256* ptr_v256 = (v256*)ptr;
+
+                        while (Hint.Likely(length >= 32))
+                        {
+                            acc0 = Avx.mm256_add_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                            acc1 = Avx.mm256_add_ps(acc1, Avx.mm256_loadu_ps(ptr_v256++));
+                            acc2 = Avx.mm256_add_ps(acc2, Avx.mm256_loadu_ps(ptr_v256++));
+                            acc3 = Avx.mm256_add_ps(acc3, Avx.mm256_loadu_ps(ptr_v256++));
+
+                            length -= 32;
+                        }
+
+                        v256 csum0 = Avx.mm256_add_ps(Avx.mm256_add_ps(acc0, acc1), Avx.mm256_add_ps(acc2, acc3));
+
+                        if (Hint.Likely((int)length >= 8))
+                        {
+                            csum0 = Avx.mm256_add_ps(csum0, Avx.mm256_loadu_ps(ptr_v256++));
+
+                            if (Hint.Likely((int)length >= 2 * 8))
+                            {
+                                csum0 = Avx.mm256_add_ps(csum0, Avx.mm256_loadu_ps(ptr_v256++));
+
+                                if (Hint.Likely((int)length >= 3 * 8))
+                                {
+                                    csum0 = Avx.mm256_add_ps(csum0, Avx.mm256_loadu_ps(ptr_v256++));
+                                    length -= 3 * 8;
+                                }
+                                else
+                                {
+                                    length -= 2 * 8;
+                                }
+                            }
+                            else
+                            {
+                                length -= 8;
+                            }
+                        }
+
+                        v128 csum1 = Sse.add_ps(Avx.mm256_castps256_ps128(csum0), Avx.mm256_extractf128_ps(csum0, 1));
+
+                        if (Hint.Likely(length >= 4))
+                        {
+                            csum1 = Sse.add_ps(csum1, Sse.loadu_ps(ptr_v256));
+                            ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                            length -= 4;
+                        }
+                        else { }
+
+                        v128 csum2 = Sse.add_ps(csum1, Sse.shuffle_ps(csum1, csum1, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely(length >= 2))
+                        {
+                            csum2 = Sse.add_ps(csum2, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                            ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                            length -= 2;
+                        }
+                        else { }
+
+                        v128 csum3 = Sse.add_ss(csum2, Sse.shuffle_ps(csum2, csum2, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            csum3 = Sse.add_ss(csum3, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                        }
+                        else { }
+
+
+                        return csum3.Float0;
+                    }
+                    else if (Sse2.IsSse2Supported)
+                    {
+                        v128 acc0 = default(v128);
+                        v128 acc1 = default(v128);
+                        v128 acc2 = default(v128);
+                        v128 acc3 = default(v128);
+                        v128* ptr_v128 = (v128*)ptr;
+
+                        while (Hint.Likely(length >= 16))
+                        {
+                            acc0 = Sse.add_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                            acc1 = Sse.add_ps(acc1, Sse.loadu_ps(ptr_v128++));
+                            acc2 = Sse.add_ps(acc2, Sse.loadu_ps(ptr_v128++));
+                            acc3 = Sse.add_ps(acc3, Sse.loadu_ps(ptr_v128++));
+
+                            length -= 16;
+                        }
+
+                        v128 csum0 = Sse.add_ps(Sse.add_ps(acc0, acc1), Sse.add_ps(acc2, acc3));
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            csum0 = Sse.add_ps(csum0, Sse.loadu_ps(ptr_v128++));
+
+                            if (Hint.Likely((int)length >= 2 * 4))
+                            {
+                                csum0 = Sse.add_ps(csum0, Sse.loadu_ps(ptr_v128++));
+
+                                if (Hint.Likely((int)length >= 3 * 4))
+                                {
+                                    csum0 = Sse.add_ps(csum0, Sse.loadu_ps(ptr_v128++));
+                                    length -= 3 * 4;
+                                }
+                                else
+                                {
+                                    length -= 2 * 4;
+                                }
+                            }
+                            else
+                            {
+                                length -= 4;
+                            }
+                        }
+
+                        v128 csum1 = Sse.add_ps(csum0, Sse.shuffle_ps(csum0, csum0, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely(length >= 2))
+                        {
+                            csum1 = Sse.add_ps(csum1, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                            ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                            length -= 2;
+                        }
+                        else { }
+
+                        v128 csum2 = Sse.add_ss(csum1, Sse.shuffle_ps(csum1, csum1, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            csum2 = Sse.add_ss(csum2, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                        }
+                        else { }
+
+
+                        return csum2.Float0;
+                    }
+                    else
+                    {
+                        goto default;
+                    }
+                }
+                default:
+                {
+                    float sum = 0;
+
+                    for (long i = 0; Hint.Likely(i < length); i++)
+                    {
+                        sum += ptr[i];
+                    }
+
+                    return sum;
+                }
             }
-
-            return sum;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeArray<float> array)
+        public static float SIMD_Sum(this NativeArray<float> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeArray<float> array, int index)
+        public static float SIMD_Sum(this NativeArray<float> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeArray<float> array, int index, int numEntries)
+        public static float SIMD_Sum(this NativeArray<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeList<float> array)
+        public static float SIMD_Sum(this NativeList<float> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeList<float> array, int index)
+        public static float SIMD_Sum(this NativeList<float> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeList<float> array, int index, int numEntries)
+        public static float SIMD_Sum(this NativeList<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeSlice<float> array)
+        public static float SIMD_Sum(this NativeSlice<float> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeSlice<float> array, int index)
+        public static float SIMD_Sum(this NativeSlice<float> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float SIMD_Sum(this NativeSlice<float> array, int index, int numEntries)
+        public static float SIMD_Sum(this NativeSlice<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(double* ptr, long length)
+        public static double SIMD_Sum(double* ptr, long length, FloatMode floatMode = FloatMode.Strict)
         {
 Assert.IsNonNegative(length);
 
-            double sum = 0;
-
-            for (long i = 0; Hint.Likely(i < length); i++)
+            switch (floatMode)
             {
-                sum += ptr[i];
+                case FloatMode.Fast:
+                {
+                    if (Avx.IsAvxSupported)
+                    {
+                        v256 acc0 = default(v256);
+                        v256 acc1 = default(v256);
+                        v256 acc2 = default(v256);
+                        v256 acc3 = default(v256);
+                        v256* ptr_v256 = (v256*)ptr;
+
+                        while (Hint.Likely(length >= 16))
+                        {
+                            acc0 = Avx.mm256_add_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                            acc1 = Avx.mm256_add_pd(acc1, Avx.mm256_loadu_pd(ptr_v256++));
+                            acc2 = Avx.mm256_add_pd(acc2, Avx.mm256_loadu_pd(ptr_v256++));
+                            acc3 = Avx.mm256_add_pd(acc3, Avx.mm256_loadu_pd(ptr_v256++));
+
+                            length -= 16;
+                        }
+
+                        v256 csum0 = Avx.mm256_add_pd(Avx.mm256_add_pd(acc0, acc1), Avx.mm256_add_pd(acc2, acc3));
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            csum0 = Avx.mm256_add_pd(csum0, Avx.mm256_loadu_pd(ptr_v256++));
+
+                            if (Hint.Likely((int)length >= 2 * 4))
+                            {
+                                csum0 = Avx.mm256_add_pd(csum0, Avx.mm256_loadu_pd(ptr_v256++));
+
+                                if (Hint.Likely((int)length >= 3 * 4))
+                                {
+                                    csum0 = Avx.mm256_add_pd(csum0, Avx.mm256_loadu_pd(ptr_v256++));
+                                    length -= 3 * 4;
+                                }
+                                else
+                                {
+                                    length -= 2 * 4;
+                                }
+                            }
+                            else
+                            {
+                                length -= 4;
+                            }
+                        }
+
+                        v128 csum1 = Sse2.add_pd(Avx.mm256_castpd256_pd128(csum0), Avx.mm256_extractf128_pd(csum0, 1));
+
+                        if (Hint.Likely(length >= 2))
+                        {
+                            csum1 = Sse2.add_pd(csum1, Sse.loadu_ps(ptr_v256));
+                            ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                            length -= 2;
+                        }
+                        else { }
+
+                        v128 csum2 = Sse2.add_sd(csum1, Sse2.shuffle_pd(csum1, csum1, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            csum2 = Sse2.add_sd(csum2, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                        }
+                        else { }
+
+
+                        return csum2.Float0;
+                    }
+                    else if (Sse2.IsSse2Supported)
+                    {
+                        v128 acc0 = default(v128);
+                        v128 acc1 = default(v128);
+                        v128 acc2 = default(v128);
+                        v128 acc3 = default(v128);
+                        v128* ptr_v128 = (v128*)ptr;
+
+                        while (Hint.Likely(length >= 8))
+                        {
+                            acc0 = Sse2.add_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                            acc1 = Sse2.add_pd(acc1, Sse.loadu_ps(ptr_v128++));
+                            acc2 = Sse2.add_pd(acc2, Sse.loadu_ps(ptr_v128++));
+                            acc3 = Sse2.add_pd(acc3, Sse.loadu_ps(ptr_v128++));
+
+                            length -= 8;
+                        }
+
+                        v128 csum0 = Sse2.add_pd(Sse2.add_pd(acc0, acc1), Sse2.add_pd(acc2, acc3));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            csum0 = Sse2.add_pd(csum0, Sse.loadu_ps(ptr_v128++));
+
+                            if (Hint.Likely((int)length >= 2 * 2))
+                            {
+                                csum0 = Sse2.add_pd(csum0, Sse.loadu_ps(ptr_v128++));
+
+                                if (Hint.Likely((int)length >= 3 * 2))
+                                {
+                                    csum0 = Sse2.add_pd(csum0, Sse.loadu_ps(ptr_v128++));
+                                    length -= 3 * 2;
+                                }
+                                else
+                                {
+                                    length -= 2 * 2;
+                                }
+                            }
+                            else
+                            {
+                                length -= 2;
+                            }
+                        }
+
+                        v128 csum1 = Sse2.add_sd(csum0, Sse2.shuffle_pd(csum0, csum0, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            csum1 = Sse2.add_sd(csum1, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                        }
+                        else { }
+
+
+                        return csum1.Float0;
+                    }
+                    else
+                    {
+                        goto default;
+                    }
+                }
+                default:
+                {
+                    double sum = 0;
+
+                    for (long i = 0; Hint.Likely(i < length); i++)
+                    {
+                        sum += ptr[i];
+                    }
+
+                    return sum;
+                }
             }
-
-            return sum;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeArray<double> array)
+        public static double SIMD_Sum(this NativeArray<double> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeArray<double> array, int index)
+        public static double SIMD_Sum(this NativeArray<double> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeArray<double> array, int index, int numEntries)
+        public static double SIMD_Sum(this NativeArray<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeList<double> array)
+        public static double SIMD_Sum(this NativeList<double> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeList<double> array, int index)
+        public static double SIMD_Sum(this NativeList<double> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeList<double> array, int index, int numEntries)
+        public static double SIMD_Sum(this NativeList<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeSlice<double> array)
+        public static double SIMD_Sum(this NativeSlice<double> array, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr(), array.Length);
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr(), array.Length, floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeSlice<double> array, int index)
+        public static double SIMD_Sum(this NativeSlice<double> array, int index, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index));
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), floatMode);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static double SIMD_Sum(this NativeSlice<double> array, int index, int numEntries)
+        public static double SIMD_Sum(this NativeSlice<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
     }
 }
