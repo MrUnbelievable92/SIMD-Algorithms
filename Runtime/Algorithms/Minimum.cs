@@ -430,7 +430,7 @@ Assert.IsNonNegative(length);
                     {
                         acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
 
-                        if (Hint.Likely((int)length >= 3 + 8))
+                        if (Hint.Likely((int)length >= 3 * 8))
                         {
                             acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 8;
