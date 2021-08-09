@@ -14,7 +14,7 @@ namespace SIMDAlgorithms
     unsafe public static partial class Algorithms
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong SIMD_Count(bool* ptr, long length, bool value, TypeCode returnType)
+        public static ulong SIMD_Count(bool* ptr, long length, bool value, TypeCode returnType = TypeCode.UInt64)
         {
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
@@ -29,6 +29,11 @@ for (int i = 0; i < length; i++)
     }
 }
 #endif
+
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.Byte)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
 
             switch (returnType)
             {
@@ -672,6 +677,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
             
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.Byte)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
+
             long originalLength = length;
 
             switch (returnType)
@@ -1347,6 +1357,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
         {
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
+            
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt16)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
 
             long originalLength = length;
 
@@ -2366,6 +2381,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt32)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
+
             long originalLength = length;
             
             switch (returnType)
@@ -3289,6 +3309,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
             
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.Byte)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
+
             long originalLength = length;
 
             switch (returnType)
@@ -3964,6 +3989,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
         {
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
+
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt16)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
 
             long originalLength = length;
 
@@ -4923,6 +4953,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt32)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
+
             long originalLength = length;
             
             switch (returnType)
@@ -5806,6 +5841,11 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 Assert.IsFalse(math.isnan(value));
+
+            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt32)
+            {
+                returnType = GetSafeRange.Count(length);
+            }
 
             switch (returnType)
             {
