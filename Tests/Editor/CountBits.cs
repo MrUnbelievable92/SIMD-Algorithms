@@ -30,7 +30,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void Generic()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -50,7 +50,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -70,7 +70,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void UShort()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -90,7 +90,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void UInt()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -110,7 +110,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ULong()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -130,7 +130,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOT_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -159,7 +159,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void AND_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -188,7 +188,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void OR_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -217,7 +217,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XOR_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -246,7 +246,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NAND_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -275,7 +275,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOR_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -304,7 +304,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XNOR_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -333,7 +333,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ANDNOT_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -362,7 +362,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ORNOT_1Byte()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -392,7 +392,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOT_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -421,7 +421,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void AND_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -450,7 +450,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void OR_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -479,7 +479,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XOR_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -508,7 +508,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NAND_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -537,7 +537,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOR_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -566,7 +566,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XNOR_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -595,7 +595,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ANDNOT_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -624,7 +624,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ORNOT_2Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -654,7 +654,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOT_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -683,7 +683,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void AND_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -712,7 +712,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void OR_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -741,7 +741,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XOR_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -770,7 +770,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NAND_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -799,7 +799,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOR_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -828,7 +828,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XNOR_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -857,7 +857,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ANDNOT_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -886,7 +886,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ORNOT_4Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -916,7 +916,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOT_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -945,7 +945,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void AND_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -974,7 +974,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void OR_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -1003,7 +1003,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XOR_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -1032,7 +1032,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NAND_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -1061,7 +1061,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void NOR_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -1090,7 +1090,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void XNOR_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -1119,7 +1119,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ANDNOT_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {
@@ -1148,7 +1148,7 @@ namespace SIMDAlgorithms.Tests
         [Test]
         public static void ORNOT_8Bytes()
         {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(CONSTANTS.RNG_SEED);
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             for (int i = 0; i < 3; i++)
             {

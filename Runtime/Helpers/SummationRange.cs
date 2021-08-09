@@ -74,5 +74,15 @@ namespace SIMDAlgorithms
                 }
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TypeCode Count(long arrayLength)
+        {
+            bool possible8BitOverflow  = arrayLength > byte.MaxValue;
+            bool possible16BitOverflow = arrayLength > ushort.MaxValue;
+            bool possible32BitOverflow = arrayLength > uint.MaxValue;
+
+            return (TypeCode)((int)TypeCode.Byte + ((*(byte*)&possible8BitOverflow + *(byte*)&possible16BitOverflow + *(byte*)&possible32BitOverflow) << 1));
+        }
     }
 }

@@ -1,9 +1,8 @@
-using NUnit.Framework;
-using Unity.Mathematics;
+﻿using NUnit.Framework;
 
 namespace SIMDAlgorithms.Tests
 {
-    public static class Minimum
+    public static class MinMax
     {
         [Test]
         public static void Byte()
@@ -13,14 +12,10 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<byte>(
             (array) => 
             {
-                byte x = byte.MaxValue;
+                array.SIMD_MinMax(out byte min, out byte max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = (byte)math.min((uint)x, (uint)array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
             () => (byte)rng.NextUInt(byte.MinValue, byte.MaxValue + 1));
         }
@@ -33,14 +28,10 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<ushort>(
             (array) => 
             {
-                ushort x = ushort.MaxValue;
+                array.SIMD_MinMax(out ushort min, out ushort max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = (ushort)math.min((uint)x, (uint)array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
             () => (ushort)rng.NextUInt(ushort.MinValue, ushort.MaxValue + 1));
         }
@@ -53,14 +44,10 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<uint>(
             (array) => 
             {
-                uint x = uint.MaxValue;
+                array.SIMD_MinMax(out uint min, out uint max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = math.min(x, array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
             rng.NextUInt);
         }
@@ -73,16 +60,12 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<ulong>(
             (array) => 
             {
-                ulong x = ulong.MaxValue;
+                array.SIMD_MinMax(out ulong min, out ulong max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = math.min(x, array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
-            () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
+            () => ((ulong)rng.NextUInt() << 32) | rng.NextUInt());
         }
 
         [Test]
@@ -93,14 +76,10 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<sbyte>(
             (array) => 
             {
-                sbyte x = sbyte.MaxValue;
+                array.SIMD_MinMax(out sbyte min, out sbyte max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = (sbyte)math.min((int)x, (int)array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
@@ -113,14 +92,10 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<short>(
             (array) => 
             {
-                short x = short.MaxValue;
+                array.SIMD_MinMax(out short min, out short max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = (short)math.min((int)x, (int)array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
@@ -133,14 +108,10 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<int>(
             (array) => 
             {
-                int x = int.MaxValue;
+                array.SIMD_MinMax(out int min, out int max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = math.min(x, array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
             rng.NextInt);
         }
@@ -153,16 +124,12 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<long>(
             (array) => 
             {
-                long x = long.MaxValue;
+                array.SIMD_MinMax(out long min, out long max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = math.min(x, array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
-            () => (long)rng.NextInt() | ((long)rng.NextInt() << 32));
+            () => (long)(((ulong)rng.NextUInt() << 32) | rng.NextUInt()));
         }
 
         [Test]
@@ -173,16 +140,12 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<float>(
             (array) => 
             {
-                float x = float.PositiveInfinity;
+                array.SIMD_MinMax(out float min, out float max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = math.min(x, array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
-            rng.NextFloat);
+            () => rng.NextFloat(float.MinValue, float.MaxValue));
         }
 
         [Test]
@@ -193,16 +156,12 @@ namespace SIMDAlgorithms.Tests
             Helpers.Test<double>(
             (array) => 
             {
-                double x = double.PositiveInfinity;
+                array.SIMD_MinMax(out double min, out double max);
 
-                for (int j = 0; j < array.Length; j++)
-                {
-                    x = math.min(x, array[j]);
-                }
-
-                Assert.AreEqual(x, array.SIMD_Minimum());
+                Assert.AreEqual(min, array.SIMD_Minimum());
+                Assert.AreEqual(max, array.SIMD_Maximum());
             },
-            rng.NextDouble);
+            () => rng.NextDouble(double.MinValue, double.MaxValue));
         }
     }
 }

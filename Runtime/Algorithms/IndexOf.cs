@@ -29,7 +29,7 @@ for (int i = 0; i < length; i++)
     }
 }
 #endif
-            return SIMD_IndexOf((byte*)ptr, length, *(byte*)&value, traversalOrder);
+            return SIMD_IndexOf((byte*)ptr, length, *(byte*)&value, Comparison.EqualTo, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -100,7 +100,7 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(byte* ptr, long length, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(byte* ptr, long length, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
@@ -115,37 +115,63 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 32))
                     {
-                        int mask = Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi8(broadcast, Avx.mm256_loadu_si256(ptr_v256)));
+                        int mask = Avx2.mm256_movemask_epi8(Compare.Bytes256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256++;
-                            length -= 32;
-                            index += 32;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+
+                        ptr_v256++;
+                        length -= 32;
+                        index += 32;
                     }
 
 
                     if (Hint.Likely((int)length >= 16))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
-                            length -= 16;
-                            index += 16;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 16;
+                        index += 16;
                     }
                     else { }
 
@@ -154,9 +180,9 @@ Assert.IsNonNegative(length);
 
                     if (Hint.Likely((int)length >= 8))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -165,26 +191,39 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((long*)ptr_v256 + 1);
-                            length -= 8;
-                            index += 8;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                        length -= 8;
+                        index += 8;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 4))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(int*)ptr_v256)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -193,26 +232,39 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((int*)ptr_v256 + 1);
-                            length -= 4;
-                            index += 4;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((int*)ptr_v256 + 1);
+                        length -= 4;
+                        index += 4;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -221,25 +273,35 @@ Assert.IsNonNegative(length);
                             mask &= 0b0011;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((short*)ptr_v256 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((short*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(byte*)ptr_v256 == value)
+                        if (Compare.Bytes(*(byte*)ptr_v256, value, where))
                         {
                             result = index;
                             goto Found;
@@ -261,27 +323,40 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 16))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.loadu_si128(ptr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.loadu_si128(ptr_v128), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128++;
-                            length -= 16;
-                            index += 16;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128++;
+                        length -= 16;
+                        index += 16;
                     }
 
 
                     if (Hint.Likely((int)length >= 8))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -290,26 +365,39 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128 = (v128*)((long*)ptr_v128 + 1);
-                            length -= 8;
-                            index += 8;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                        length -= 8;
+                        index += 8;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 4))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi32_si128(*(int*)ptr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -318,26 +406,39 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128 = (v128*)((int*)ptr_v128 + 1);
-                            length -= 4;
-                            index += 4;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128 = (v128*)((int*)ptr_v128 + 1);
+                        length -= 4;
+                        index += 4;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.insert_epi16(default(v128), *(short*)ptr_v128, 0)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.insert_epi16(default(v128), *(short*)ptr_v128, 0), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -346,25 +447,35 @@ Assert.IsNonNegative(length);
                             mask &= 0b0011;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128 = (v128*)((short*)ptr_v128 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+
+                        ptr_v128 = (v128*)((short*)ptr_v128 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(byte*)ptr_v128 == value)
+                        if (Compare.Bytes(*(byte*)ptr_v128, value, where))
                         {
                             result = index;
                             goto Found;
@@ -381,7 +492,7 @@ Assert.IsNonNegative(length);
                 {
                     for (long i = 0; i < length; i++)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.Bytes(ptr[i], value, where))
                         {
                             return i;
                         }
@@ -403,42 +514,68 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
                     {
                         endPtr_v256--;
-                        int mask = Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi8(broadcast, Avx.mm256_loadu_si256(endPtr_v256)));
+                        int mask = Avx2.mm256_movemask_epi8(Compare.Bytes256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 32;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 32;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
                     {
                         endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 16) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 16;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 16;
                     }
                     else { }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
                     {
                         endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -447,24 +584,37 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 24) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 8;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 8;
                     }
                     else { }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 4))
                     {
                         endPtr_v256 = (v256*)((int*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(int*)endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -473,14 +623,25 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 28) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
@@ -488,9 +649,9 @@ Assert.IsNonNegative(length);
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 2))
                     {
                         endPtr_v256 = (v256*)((ushort*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(ushort*)endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi32_si128(*(ushort*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -499,26 +660,34 @@ Assert.IsNonNegative(length);
                             mask &= 0b0011;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheFirstIsEqualToValue = mask == 1;
-                            result = index - *(byte*)&onlyTheFirstIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
                     {
                         endPtr_v256 = (v256*)((byte*)endPtr_v256 - 1);
 
-                        if (*(byte*)endPtr_v256 == value)
+                        if (Compare.Bytes(*(byte*)endPtr_v256, value, where))
                         {
-                            result = index;
+                            result = 0;
                         }
                         else { }
                     }
@@ -538,25 +707,38 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
                     {
                         endPtr_v128--;
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.loadu_si128(endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 16) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 16;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 16;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
                     {
                         endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi64x_si128(*(long*)endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -565,24 +747,37 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 24) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 8;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 8;
                     }
                     else { }
 
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 4))
                     {
                         endPtr_v128 = (v128*)((int*)endPtr_v128 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi32_si128(*(int*)endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)endPtr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -591,14 +786,25 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 28) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
@@ -606,9 +812,9 @@ Assert.IsNonNegative(length);
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 2))
                     {
                         endPtr_v128 = (v128*)((ushort*)endPtr_v128 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi8(broadcast, Sse2.cvtsi32_si128(*(ushort*)endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.Bytes128(Sse2.cvtsi32_si128(*(ushort*)endPtr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -617,26 +823,34 @@ Assert.IsNonNegative(length);
                             mask &= 0b0011;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheFirstIsEqualToValue = mask == 1;
-                            result = index - *(byte*)&onlyTheFirstIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
                     {
                         endPtr_v128 = (v128*)((byte*)endPtr_v128 - 1);
 
-                        if (*(byte*)endPtr_v128 == value)
+                        if (Compare.Bytes(*(byte*)endPtr_v128, value, where))
                         {
-                            result = index;
+                            result = 0;
                             goto Found;
                         }
                         else { }
@@ -653,7 +867,7 @@ Assert.IsNonNegative(length);
 
                     while (i >= 0)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.Bytes(ptr[i], value, where))
                         {
                             goto Found;
                         }
@@ -670,74 +884,74 @@ Assert.IsNonNegative(length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<byte> array, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<byte> array, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<byte> array, int index, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index, array.Length);
-
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<byte> array, int index, int numEntries, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
-
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<byte> array, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<byte> array, int index, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<byte> array, int index, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<byte> array, int index, int numEntries, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<byte> array, int index, int numEntries, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<byte> array, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<byte> array, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<byte> array, int index, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<byte> array, int index, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<byte> array, int index, int numEntries, byte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<byte> array, int index, int numEntries, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<byte> array, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<byte> array, int index, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<byte> array, int index, int numEntries, byte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return (int)SIMD_IndexOf((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(ushort* ptr, long length, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(ushort* ptr, long length, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
@@ -752,46 +966,70 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 16))
                     {
-                        int mask = Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi16(broadcast, Avx.mm256_loadu_si256(ptr_v256)));
+                        int mask = Avx2.mm256_movemask_epi8(Compare.UShorts256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + (math.tzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256++;
-                            length -= 16;
-                            index += 16;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256++;
+                        length -= 16;
+                        index += 16;
                     }
 
 
                     if (Hint.Likely((int)length >= 8))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256), where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + (math.tzcnt(mask) >> 1);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + (math.tzcnt(~mask) >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
-                            length -= 8;
-                            index += 8;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 8;
+                        index += 8;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 4))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -800,26 +1038,39 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + (math.tzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((long*)ptr_v256 + 1);
-                            length -= 4;
-                            index += 4;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                        length -= 4;
+                        index += 4;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(int*)ptr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -828,25 +1079,35 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 0b1100;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((int*)ptr_v256 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((int*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(ushort*)ptr_v256 == value)
+                        if (Compare.UShorts(*(ushort*)ptr_v256, value, where))
                         {
                             result = index;
                             goto Found;
@@ -868,27 +1129,40 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 8))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.loadu_si128(ptr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.loadu_si128(ptr_v128), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + (math.tzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128++;
-                            length -= 8;
-                            index += 8;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128++;
+                        length -= 8;
+                        index += 8;
                     }
 
 
                     if (Hint.Likely((int)length >= 4))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -897,26 +1171,39 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + (math.tzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128 = (v128*)((long*)ptr_v128 + 1);
-                            length -= 4;
-                            index += 4;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                        length -= 4;
+                        index += 4;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.cvtsi32_si128(*(int*)ptr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -925,25 +1212,35 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 0b1100;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128 = (v128*)((int*)ptr_v128 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128 = (v128*)((int*)ptr_v128 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(ushort*)ptr_v128 == value)
+                        if (Compare.UShorts(*(ushort*)ptr_v128, value, where))
                         {
                             result = index;
                             goto Found;
@@ -960,7 +1257,7 @@ Assert.IsNonNegative(length);
                 {
                     for (long i = 0; i < length; i++)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.UShorts(ptr[i], value, where))
                         {
                             return i;
                         }
@@ -982,42 +1279,66 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
                     {
                         endPtr_v256--;
-                        int mask = Avx2.mm256_movemask_epi8(Avx2.mm256_cmpeq_epi16(broadcast, Avx.mm256_loadu_si256(endPtr_v256)));
+                        int mask = Avx2.mm256_movemask_epi8(Compare.UShorts256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index - (math.lzcnt(~mask) >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 16;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 16;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
                     {
                         endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 8) - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 8;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 8;
                     }
                     else { }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
                     {
                         endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -1026,14 +1347,25 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 12) - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
                     }
                     else { }
@@ -1041,9 +1373,9 @@ Assert.IsNonNegative(length);
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 4))
                     {
                         endPtr_v256 = (v256*)((int*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi32_si128(*(int*)endPtr_v256)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -1052,25 +1384,34 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 14) - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheFirst = mask == 0b1100;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheFirst;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
                     {
                         endPtr_v256 = (v256*)((ushort*)endPtr_v256 - 1);
 
-                        if (*(ushort*)endPtr_v256 == value)
+                        if (Compare.UShorts(*(ushort*)endPtr_v256, value, where))
                         {
-                            result = index;
+                            result = 0;
                         }
                         else { }
                     }
@@ -1090,25 +1431,38 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
                     {
                         endPtr_v128--;
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.loadu_si128(endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 8) - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 8;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 8;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
                     {
                         endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.cvtsi64x_si128(*(long*)endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -1117,14 +1471,25 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 12) - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
                         }
                     }
                     else { }
@@ -1132,9 +1497,9 @@ Assert.IsNonNegative(length);
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 4))
                     {
                         endPtr_v128 = (v128*)((int*)endPtr_v128 - 1);
-                        int mask = Sse2.movemask_epi8(Sse2.cmpeq_epi16(broadcast, Sse2.cvtsi32_si128(*(int*)endPtr_v128)));
+                        int mask = Sse2.movemask_epi8(Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)endPtr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -1143,25 +1508,34 @@ Assert.IsNonNegative(length);
                             mask &= 0b1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 14) - (math.lzcnt(mask) >> 1);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
                     {
                         endPtr_v128 = (v128*)((ushort*)endPtr_v128 - 1);
 
-                        if (*(ushort*)endPtr_v128 == value)
+                        if (Compare.UShorts(*(ushort*)endPtr_v128, value, where))
                         {
-                            result = index;
+                            result = 0;
                             goto Found;
                         }
                         else { }
@@ -1178,7 +1552,7 @@ Assert.IsNonNegative(length);
 
                     while (i >= 0)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.UShorts(ptr[i], value, where))
                         {
                             goto Found;
                         }
@@ -1195,74 +1569,74 @@ Assert.IsNonNegative(length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<ushort> array, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<ushort> array, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<ushort> array, int index, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index, array.Length);
-
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<ushort> array, int index, int numEntries, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
-
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<ushort> array, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<ushort> array, int index, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<ushort> array, int index, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<ushort> array, int index, int numEntries, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<ushort> array, int index, int numEntries, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<ushort> array, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<ushort> array, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<ushort> array, int index, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<ushort> array, int index, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<ushort> array, int index, int numEntries, ushort value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<ushort> array, int index, int numEntries, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<ushort> array, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<ushort> array, int index, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<ushort> array, int index, int numEntries, ushort value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return (int)SIMD_IndexOf((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(uint* ptr, long length, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(uint* ptr, long length, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
@@ -1277,46 +1651,72 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 8))
                     {
-                        int mask = Avx.mm256_movemask_ps(Avx2.mm256_cmpeq_epi32(broadcast, Avx.mm256_loadu_si256(ptr_v256)));
+                        int mask = Avx.mm256_movemask_ps(Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256++;
-                            length -= 8;
-                            index += 8;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256++;
+                        length -= 8;
+                        index += 8;
                     }
 
 
                     if (Hint.Likely((int)length >= 4))
                     {
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256)));
+                        int mask = Sse.movemask_ps(Compare.UInts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
-                            length -= 4;
-                            index += 4;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 4;
+                        index += 4;
                     }
                     else { }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
+                        int mask = Sse.movemask_ps(Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -1325,25 +1725,35 @@ Assert.IsNonNegative(length);
                             mask &= 0b0011;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((long*)ptr_v256 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(uint*)ptr_v256 == value)
+                        if (Compare.UInts(*(uint*)ptr_v256, value, where))
                         {
                             result = index;
                             goto Found;
@@ -1365,54 +1775,127 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 4))
                     {
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.loadu_si128(ptr_v128)));
+                        int mask = Sse.movemask_ps(Compare.UInts128(Sse2.loadu_si128(ptr_v128), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (Sse4_1.IsSse41Supported)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                long nonHits = (uint)math.tzcnt(~mask);
+
+                                if (Hint.Unlikely(mask != 0b1111))
+                                {
+                                    result = index + nonHits;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                long nonHits = (uint)math.tzcnt(mask);
+
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    result = index + nonHits;
+                                    goto Found;
+                                }
+                            }
                         }
                         else
                         {
-                            ptr_v128++;
-                            length -= 4;
-                            index += 4;
+                            if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                            {
+                                long nonHits = (uint)math.tzcnt(~mask);
+
+                                if (Hint.Unlikely(mask != 0b1111))
+                                {
+                                    result = index + nonHits;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                long nonHits = (uint)math.tzcnt(mask);
+
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    result = index + nonHits;
+                                    goto Found;
+                                }
+                            }
                         }
+                        
+                        ptr_v128++;
+                        length -= 4;
+                        index += 4;
                     }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
                         else
                         {
-                            mask &= 0b0011;
+                            mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (Sse4_1.IsSse41Supported)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0b1111_1111))
+                                {
+                                    bool onlyTheSecond = mask == 0x000F;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    bool onlyTheSecond = mask == 0x00F0;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
                         }
                         else
                         {
-                            ptr_v128 = (v128*)((long*)ptr_v128 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0b1111_1111))
+                                {
+                                    bool onlyTheSecond = mask == 0x000F;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    bool onlyTheSecond = mask == 0x00F0;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
                         }
+                        
+                        ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(uint*)ptr_v128 == value)
+                        if (Compare.UInts(*(uint*)ptr_v128, value, where))
                         {
                             result = index;
                             goto Found;
@@ -1429,7 +1912,7 @@ Assert.IsNonNegative(length);
                 {
                     for (long i = 0; i < length; i++)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.UInts(ptr[i], value, where))
                         {
                             return i;
                         }
@@ -1451,32 +1934,56 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
                     {
                         endPtr_v256--;
-                        int mask = Avx.mm256_movemask_ps(Avx2.mm256_cmpeq_epi32(broadcast, Avx.mm256_loadu_si256(endPtr_v256)));
+                        int mask = Avx.mm256_movemask_ps(Compare.UInts256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 24) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 8;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 8;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
                     {
                         endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(endPtr_v256)));
+                        int mask = Sse.movemask_ps(Compare.UInts128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 28) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
@@ -1484,36 +1991,45 @@ Assert.IsNonNegative(length);
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
                     {
                         endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(Avx.mm256_castsi256_si128(broadcast), Sse2.cvtsi64x_si128(*(long*)endPtr_v256)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
                         else
                         {
-                            mask &= 0b0011;
+                            mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo)
                         {
-                            result = (index + 30) - math.lzcnt(mask);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                bool onlyTheSecond = mask == 0x000F;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0x00F0;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
                     {
                         endPtr_v256 = (v256*)((uint*)endPtr_v256 - 1);
 
-                        if (*(uint*)endPtr_v256 == value)
+                        if (Compare.UInts(*(uint*)endPtr_v256, value, where))
                         {
-                            result = index;
+                            result = 0;
                         }
                         else { }
                     }
@@ -1533,52 +2049,124 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
                     {
                         endPtr_v128--;
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.loadu_si128(endPtr_v128)));
+                        int mask = Sse.movemask_ps(Compare.UInts128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (Sse4_1.IsSse41Supported)
                         {
-                            result = (index + 28) - math.lzcnt(mask);
-                            goto Found;
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                                if (Hint.Unlikely(mask != 0b1111))
+                                {
+                                    result = (index + 28) - nonHitsWithOffset;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            { 
+                                long nonHitsWithOffset = math.lzcnt(mask);
+
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    result = (index + 28) - nonHitsWithOffset;
+                                    goto Found;
+                                }
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                            {
+                                long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                                if (Hint.Unlikely(mask != 0b1111))
+                                {
+                                    result = (index + 28) - nonHitsWithOffset;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                long nonHitsWithOffset = math.lzcnt(mask);
+
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    result = (index + 28) - nonHitsWithOffset;
+                                    goto Found;
+                                }
+                            }
                         }
+                        
+                        index -= 4;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
                     {
                         endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
-                        int mask = Sse.movemask_ps(Sse2.cmpeq_epi32(broadcast, Sse2.cvtsi64x_si128(*(long*)endPtr_v128)));
-
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        int mask = Sse2.movemask_epi8(Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
                         else
                         {
-                            mask &= 0b0011;
+                            mask &= 0b1111_1111;
                         }
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (Sse4_1.IsSse41Supported)
                         {
-                            result = (index + 30) - math.lzcnt(mask);
-                            goto Found;
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0b1111_1111))
+                                {
+                                    bool onlyTheSecond = mask == 0x000F;
+                                    result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    bool onlyTheSecond = mask == 0x00F0;
+                                    result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                            {
+                                if (Hint.Unlikely((byte)mask != 0b1111_1111))
+                                {
+                                    bool onlyTheSecond = mask == 0x000F;
+                                    result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    bool onlyTheSecond = mask == 0x00F0;
+                                    result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
                     {
                         endPtr_v128 = (v128*)((uint*)endPtr_v128 - 1);
 
-                        if (*(uint*)endPtr_v128 == value)
+                        if (Compare.UInts(*(uint*)endPtr_v128, value, where))
                         {
-                            result = index;
+                            result = 0;
                             goto Found;
                         }
                         else { }
@@ -1595,7 +2183,7 @@ Assert.IsNonNegative(length);
 
                     while (i >= 0)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.UInts(ptr[i], value, where))
                         {
                             goto Found;
                         }
@@ -1612,74 +2200,74 @@ Assert.IsNonNegative(length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<uint> array, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<uint> array, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<uint> array, int index, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index, array.Length);
-
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<uint> array, int index, int numEntries, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
-
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<uint> array, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<uint> array, int index, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<uint> array, int index, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<uint> array, int index, int numEntries, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<uint> array, int index, int numEntries, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<uint> array, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<uint> array, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<uint> array, int index, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<uint> array, int index, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<uint> array, int index, int numEntries, uint value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<uint> array, int index, int numEntries, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<uint> array, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<uint> array, int index, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<uint> array, int index, int numEntries, uint value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return (int)SIMD_IndexOf((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(ulong* ptr, long length, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(ulong* ptr, long length, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
@@ -1694,45 +2282,68 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 4))
                     {
-                        int mask = Avx.mm256_movemask_pd(Avx2.mm256_cmpeq_epi64(broadcast, Avx.mm256_loadu_si256(ptr_v256)));
+                        int mask = Avx.mm256_movemask_pd(Compare.ULongs256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
 
-                        if (Hint.Unlikely(mask != 0))
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256++;
-                            length -= 4;
-                            index += 4;
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256++;
+                        length -= 4;
+                        index += 4;
                     }
 
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse2.movemask_pd(Sse4_1.cmpeq_epi64(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256)));
-
-                        if (Hint.Unlikely(mask != 0))
+                        int mask = Sse2.movemask_epi8(Compare.ULongs128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0b1111_1111;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
                     }
                     else { }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(ulong*)ptr_v256 == value)
+                        if (Compare.ULongs(*(ulong*)ptr_v256, value, where))
                         {
                             result = index;
                         }
@@ -1744,7 +2355,7 @@ Assert.IsNonNegative(length);
                 Found:
                     return result;
                 }
-                else if (!Sse4_1.IsSse41Supported)
+                else if (Sse4_2.IsSse42Supported)
                 {
                     v128 broadcast = Sse2.set1_epi64x((long)value);
                     v128* ptr_v128 = (v128*)ptr;
@@ -1753,25 +2364,36 @@ Assert.IsNonNegative(length);
 
                     while (Hint.Likely(length >= 2))
                     {
-                        int mask = Sse2.movemask_pd(Sse4_1.cmpeq_epi64(broadcast, Sse2.loadu_si128(ptr_v128)));
-
-                        if (Hint.Unlikely(mask != 0))
+                        int mask = Sse2.movemask_epi8(Compare.ULongs128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
-                            result = index + math.tzcnt(mask);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0b1111_1111;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            ptr_v128++;
-                            length -= 2;
-                            index += 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
+                        
+                        ptr_v128++;
+                        length -= 2;
+                        index += 2;
                     }
 
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(ulong*)ptr_v128 == value)
+                        if (Compare.ULongs(*(ulong*)ptr_v128, value, where))
                         {
                             result = index;
                             goto Found;
@@ -1784,11 +2406,78 @@ Assert.IsNonNegative(length);
                 Found:
                     return result;
                 }
+                else if (Sse4_1.IsSse41Supported)
+                {
+                    if (where == Comparison.EqualTo || where == Comparison.NotEqualTo)
+                    {
+                        v128 broadcast = Sse2.set1_epi64x((long)value);
+                        v128* ptr_v128 = (v128*)ptr;
+                        long index = 0;
+                        long result = -1;
+
+                        while (Hint.Likely(length >= 2))
+                        {
+                            int mask = Sse2.movemask_epi8(Compare.ULongs128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+                            
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0xFFFF))
+                                {
+                                    bool onlyTheSecond = (ushort)mask == 0b1111_1111;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            
+                            ptr_v128++;
+                            length -= 2;
+                            index += 2;
+                        }
+
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            if (Compare.ULongs(*(ulong*)ptr_v128, value, where))
+                            {
+                                result = index;
+                                goto Found;
+                            }
+                            else { }
+                        }
+                        else { }
+
+
+                    Found:
+                        return result;
+                    }
+                    else
+                    {
+                        for (long i = 0; i < length; i++)
+                        {
+                            if (Compare.ULongs(ptr[i], value, where))
+                            {
+                                return i;
+                            }
+                            else continue;
+                        }
+
+                        return -1;
+                    }
+                }
                 else
                 {
                     for (long i = 0; i < length; i++)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.ULongs(ptr[i], value, where))
                         {
                             return i;
                         }
@@ -1810,43 +2499,65 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
                     {
                         endPtr_v256--;
-                        int mask = Avx.mm256_movemask_pd(Avx2.mm256_cmpeq_epi64(broadcast, Avx.mm256_loadu_si256(endPtr_v256)));
-
-                        if (Hint.Unlikely(mask != 0))
+                        int mask = Avx.mm256_movemask_pd(Compare.ULongs256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
-                            result = (index + 28) - math.lzcnt(mask);
-                            goto Found;
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 4;
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
                         }
+                        
+                        index -= 4;
                     }
 
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
                     {
                         endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_pd(Sse4_1.cmpeq_epi64(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(endPtr_v256)));
-
-                        if (Hint.Unlikely(mask != 0))
+                        int mask = Sse2.movemask_epi8(Compare.ULongs128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
-                            result = (index + 30) - math.lzcnt(mask);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0x00FF;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
                     {
                         endPtr_v256 = (v256*)((ulong*)endPtr_v256 - 1);
 
-                        if (*(ulong*)endPtr_v256 == value)
+                        if (Compare.ULongs(*(ulong*)endPtr_v256, value, where))
                         {
-                            result = index;
+                            result = 0;
                         }
                         else { }
                     }
@@ -1856,7 +2567,7 @@ Assert.IsNonNegative(length);
                 Found:
                     return result;
                 }
-                else if (!Sse4_1.IsSse41Supported)
+                else if (Sse4_2.IsSse42Supported)
                 {
                     v128 broadcast = Sse2.set1_epi64x((long)value);
                     long index = length - 1;
@@ -1866,26 +2577,37 @@ Assert.IsNonNegative(length);
                     while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
                     {
                         endPtr_v128--;
-                        int mask = Sse2.movemask_pd(Sse4_1.cmpeq_epi64(broadcast, Sse2.loadu_si128(endPtr_v128)));
-
-                        if (Hint.Unlikely(mask != 0))
+                        int mask = Sse2.movemask_epi8(Compare.ULongs128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
-                            result = (index + 30) - math.lzcnt(mask);
-                            goto Found;
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheFirst = (ushort)mask == 0xFF00;
+                                result = index - *(byte*)&onlyTheFirst;
+                                goto Found;
+                            }
                         }
                         else
                         {
-                            index -= 2;
+                            if (Hint.Unlikely(mask != 0)) 
+                            {
+                                bool onlyTheFirst = (ushort)mask == 0x00FF;
+                                result = index - *(byte*)&onlyTheFirst;
+                                goto Found;
+                            }
                         }
+
+                        index -= 2;
                     }
 
-                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
                     {
                         endPtr_v128 = (v128*)((ulong*)endPtr_v128 - 1);
 
-                        if (*(ulong*)endPtr_v128 == value)
+                        if (Compare.ULongs(*(ulong*)endPtr_v128, value, where))
                         {
-                            result = index;
+                            result = 0;
                             goto Found;
                         }
                         else { }
@@ -1896,13 +2618,87 @@ Assert.IsNonNegative(length);
                 Found:
                     return result;
                 }
+                
+                else if (Sse4_1.IsSse41Supported)
+                {
+                    if (where == Comparison.EqualTo || where == Comparison.NotEqualTo)
+                    {
+                        v128 broadcast = Sse2.set1_epi64x((long)value);
+                        long index = length - 1;
+                        long result = -1;
+                        v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                        while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
+                        {
+                            endPtr_v128--;
+                            int mask = Sse2.movemask_epi8(Compare.ULongs128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+                            
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0xFFFF))
+                                {
+                                    bool onlyTheFirst = (ushort)mask == 0xFF00;
+                                    result = index - *(byte*)&onlyTheFirst;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0)) 
+                                {
+                                    bool onlyTheFirst = (ushort)mask == 0x00FF;
+                                    result = index - *(byte*)&onlyTheFirst;
+                                    goto Found;
+                                }
+                            }
+
+                            index -= 2;
+                        }
+
+                        if (Hint.Likely((long)endPtr_v128 != (long)ptr))
+                        {
+                            endPtr_v128 = (v128*)((ulong*)endPtr_v128 - 1);
+
+                            if (Compare.ULongs(*(ulong*)endPtr_v128, value, where))
+                            {
+                                result = 0;
+                                goto Found;
+                            }
+                            else { }
+                        }
+                        else { }
+
+
+                    Found:
+                        return result;
+                    }
+                    else
+                    {
+                        long i = length - 1;
+
+                        while (i >= 0)
+                        {
+                            if (Compare.ULongs(ptr[i], value, where))
+                            {
+                                goto Found;
+                            }
+                            else
+                            {
+                                i--;
+                            }
+                        }
+
+                    Found:
+                        return i;
+                    }
+                }
                 else
                 {
                     long i = length - 1;
 
                     while (i >= 0)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.ULongs(ptr[i], value, where))
                         {
                             goto Found;
                         }
@@ -1919,374 +2715,2658 @@ Assert.IsNonNegative(length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<ulong> array, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<ulong> array, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<ulong> array, int index, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index, array.Length);
-
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<ulong> array, int index, int numEntries, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
-
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<ulong> array, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<ulong> array, int index, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<ulong> array, int index, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<ulong> array, int index, int numEntries, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<ulong> array, int index, int numEntries, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<ulong> array, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<ulong> array, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<ulong> array, int index, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<ulong> array, int index, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<ulong> array, int index, int numEntries, ulong value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<ulong> array, int index, int numEntries, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<ulong> array, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<ulong> array, int index, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<ulong> array, int index, int numEntries, ulong value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return (int)SIMD_IndexOf((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(sbyte* ptr, long length, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(sbyte* ptr, long length, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
-            return SIMD_IndexOf((byte*)ptr, length, (byte)value, traversalOrder);
+            if (traversalOrder == TraversalOrder.Ascending)
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi8((byte)value);
+                    v256* ptr_v256 = (v256*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 32))
+                    {
+                        int mask = Avx2.mm256_movemask_epi8(Compare.SBytes256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+
+                        ptr_v256++;
+                        length -= 32;
+                        index += 32;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 16))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 16;
+                        index += 16;
+                    }
+                    else { }
+
+
+                    v128 cmp = default(v128);
+
+                    if (Hint.Likely((int)length >= 8))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                        length -= 8;
+                        index += 8;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 4))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((int*)ptr_v256 + 1);
+                        length -= 4;
+                        index += 4;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b0011;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((short*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.SBytes(*(sbyte*)ptr_v256, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse2.IsSse2Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi8(value);
+                    v128* ptr_v128 = (v128*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 16))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128++;
+                        length -= 16;
+                        index += 16;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 8))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                        length -= 8;
+                        index += 8;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 4))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128 = (v128*)((int*)ptr_v128 + 1);
+                        length -= 4;
+                        index += 4;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.insert_epi16(default(v128), *(short*)ptr_v128, 0), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b0011;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+
+                        ptr_v128 = (v128*)((short*)ptr_v128 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.SBytes(*(sbyte*)ptr_v128, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else
+                {
+                    for (long i = 0; i < length; i++)
+                    {
+                        if (Compare.SBytes(ptr[i], value, where))
+                        {
+                            return i;
+                        }
+                        else continue;
+                    }
+
+                    return -1;
+                }
+            }
+            else
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi8((byte)value);
+                    long index = length - 1;
+                    long result = -1;
+                    v256* endPtr_v256 = (v256*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
+                    {
+                        endPtr_v256--;
+                        int mask = Avx2.mm256_movemask_epi8(Compare.SBytes256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 32;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
+                    {
+                        endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 16;
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
+                    {
+                        endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 8;
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 4))
+                    {
+                        endPtr_v256 = (v256*)((int*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 2))
+                    {
+                        endPtr_v256 = (v256*)((ushort*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi32_si128(*(ushort*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b0011;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
+                    {
+                        endPtr_v256 = (v256*)((byte*)endPtr_v256 - 1);
+
+                        if (Compare.SBytes(*(sbyte*)endPtr_v256, value, where))
+                        {
+                            result = 0;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse2.IsSse2Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi8((sbyte)value);
+                    long index = length - 1;
+                    long result = -1;
+                    v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
+                    {
+                        endPtr_v128--;
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 16) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 16;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
+                    {
+                        endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 8;
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 4))
+                    {
+                        endPtr_v128 = (v128*)((int*)endPtr_v128 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)endPtr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 2))
+                    {
+                        endPtr_v128 = (v128*)((ushort*)endPtr_v128 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.SBytes128(Sse2.cvtsi32_si128(*(ushort*)endPtr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b0011;
+                        }
+
+                        if (where == Comparison.NotEqualTo  || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b0011))
+                            {
+                                bool onlyTheSecond = mask == 0b0001;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b0010;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
+                    {
+                        endPtr_v128 = (v128*)((byte*)endPtr_v128 - 1);
+
+                        if (Compare.SBytes(*(sbyte*)endPtr_v128, value, where))
+                        {
+                            result = 0;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else
+                {
+                    long i = length - 1;
+
+                    while (i >= 0)
+                    {
+                        if (Compare.SBytes(ptr[i], value, where))
+                        {
+                            goto Found;
+                        }
+                        else
+                        {
+                            i--;
+                        }
+                    }
+
+                Found:
+                    return i;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<sbyte> array, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<sbyte> array, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<sbyte> array, int index, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<sbyte> array, int index, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<sbyte> array, int index, int numEntries, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<sbyte> array, int index, int numEntries, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<sbyte> array, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<sbyte> array, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<sbyte> array, int index, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<sbyte> array, int index, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<sbyte> array, int index, int numEntries, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<sbyte> array, int index, int numEntries, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<sbyte> array, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<sbyte> array, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<sbyte> array, int index, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<sbyte> array, int index, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<sbyte> array, int index, int numEntries, sbyte value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<sbyte> array, int index, int numEntries, sbyte value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(short* ptr, long length, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(short* ptr, long length, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
-            return SIMD_IndexOf((ushort*)ptr, length, (ushort)value, traversalOrder);
+            if (traversalOrder == TraversalOrder.Ascending)
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi16(value);
+                    v256* ptr_v256 = (v256*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 16))
+                    {
+                        int mask = Avx2.mm256_movemask_epi8(Compare.Shorts256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256++;
+                        length -= 16;
+                        index += 16;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 8))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Avx.mm256_castsi256_si128(broadcast), Sse2.loadu_si128(ptr_v256), where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 8;
+                        index += 8;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 4))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                        length -= 4;
+                        index += 4;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((int*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.Shorts(*(short*)ptr_v256, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse2.IsSse2Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi16(value);
+                    v128* ptr_v128 = (v128*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 8))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128++;
+                        length -= 8;
+                        index += 8;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 4))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + (nonHits >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                        length -= 4;
+                        index += 4;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128 = (v128*)((int*)ptr_v128 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.Shorts(*(short*)ptr_v128, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else
+                {
+                    for (long i = 0; i < length; i++)
+                    {
+                        if (Compare.Shorts(ptr[i], value, where))
+                        {
+                            return i;
+                        }
+                        else continue;
+                    }
+
+                    return -1;
+                }
+            }
+            else
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi16(value);
+                    long index = length - 1;
+                    long result = -1;
+                    v256* endPtr_v256 = (v256*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
+                    {
+                        endPtr_v256--;
+                        int mask = Avx2.mm256_movemask_epi8(Compare.Shorts256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != -1))
+                            {
+                                result = index - (math.lzcnt(~mask) >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 16;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
+                    {
+                        endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 8;
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
+                    {
+                        endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 4))
+                    {
+                        endPtr_v256 = (v256*)((int*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
+                    {
+                        endPtr_v256 = (v256*)((short*)endPtr_v256 - 1);
+
+                        if (Compare.Shorts(*(short*)endPtr_v256, value, where))
+                        {
+                            result = 0;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse2.IsSse2Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi16(value);
+                    long index = length - 1;
+                    long result = -1;
+                    v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
+                    {
+                        endPtr_v128--;
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0xFFFF ^ mask);
+
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 8) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 8;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
+                    {
+                        endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 12) - (nonHitsWithOffset >> 1);
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 4))
+                    {
+                        endPtr_v128 = (v128*)((int*)endPtr_v128 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)endPtr_v128), broadcast, where));
+
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                bool onlyTheSecond = mask == 0b0011;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0b1100;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
+                    {
+                        endPtr_v128 = (v128*)((short*)endPtr_v128 - 1);
+
+                        if (Compare.Shorts(*(short*)endPtr_v128, value, where))
+                        {
+                            result = 0;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else
+                {
+                    long i = length - 1;
+
+                    while (i >= 0)
+                    {
+                        if (Compare.Shorts(ptr[i], value, where))
+                        {
+                            goto Found;
+                        }
+                        else
+                        {
+                            i--;
+                        }
+                    }
+
+                Found:
+                    return i;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<short> array, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<short> array, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<short> array, int index, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<short> array, int index, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<short> array, int index, int numEntries, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<short> array, int index, int numEntries, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<short> array, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<short> array, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<short> array, int index, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<short> array, int index, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<short> array, int index, int numEntries, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<short> array, int index, int numEntries, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<short> array, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<short> array, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<short> array, int index, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<short> array, int index, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<short> array, int index, int numEntries, short value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<short> array, int index, int numEntries, short value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(int* ptr, long length, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(int* ptr, long length, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
-            return SIMD_IndexOf((uint*)ptr, length, (uint)value, traversalOrder);
+            if (traversalOrder == TraversalOrder.Ascending)
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi32((int)value);
+                    v256* ptr_v256 = (v256*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 8))
+                    {
+                        int mask = Avx.mm256_movemask_ps(Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256++;
+                        length -= 8;
+                        index += 8;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 4))
+                    {
+                        int mask = Sse.movemask_ps(Compare.Ints128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 4;
+                        index += 4;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                bool onlyTheSecond = mask == 0x000F;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0x00F0;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((long*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.Ints(*(int*)ptr_v256, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse2.IsSse2Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi32((int)value);
+                    v128* ptr_v128 = (v128*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 4))
+                    {
+                        int mask = Sse.movemask_ps(Compare.Ints128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128++;
+                        length -= 4;
+                        index += 4;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                bool onlyTheSecond = mask == 0x000F;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0x00F0;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128 = (v128*)((long*)ptr_v128 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.Ints(*(int*)ptr_v128, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else
+                {
+                    for (long i = 0; i < length; i++)
+                    {
+                        if (Compare.Ints(ptr[i], value, where))
+                        {
+                            return i;
+                        }
+                        else continue;
+                    }
+
+                    return -1;
+                }
+            }
+            else
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi32((int)value);
+                    long index = length - 1;
+                    long result = -1;
+                    v256* endPtr_v256 = (v256*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
+                    {
+                        endPtr_v256--;
+                        int mask = Avx.mm256_movemask_ps(Compare.Ints256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111_1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 24) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 8;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
+                    {
+                        endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
+                        int mask = Sse.movemask_ps(Compare.Ints128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
+                    {
+                        endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                bool onlyTheSecond = mask == 0x000F;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0x00F0;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
+                    {
+                        endPtr_v256 = (v256*)((int*)endPtr_v256 - 1);
+
+                        if (Compare.Ints(*(int*)endPtr_v256, value, where))
+                        {
+                            result = 0;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse2.IsSse2Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi32((int)value);
+                    long index = length - 1;
+                    long result = -1;
+                    v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
+                    {
+                        endPtr_v128--;
+                        int mask = Sse.movemask_ps(Compare.Ints128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        { 
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 4;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
+                    {
+                        endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
+                        
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            mask &= 0b1111_1111;
+                        }
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0b1111_1111))
+                            {
+                                bool onlyTheSecond = mask == 0x000F;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = mask == 0x00F0;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
+                    {
+                        endPtr_v128 = (v128*)((int*)endPtr_v128 - 1);
+
+                        if (Compare.Ints(*(int*)endPtr_v128, value, where))
+                        {
+                            result = 0;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else
+                {
+                    long i = length - 1;
+
+                    while (i >= 0)
+                    {
+                        if (Compare.Ints(ptr[i], value, where))
+                        {
+                            goto Found;
+                        }
+                        else
+                        {
+                            i--;
+                        }
+                    }
+
+                Found:
+                    return i;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<int> array, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<int> array, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<int> array, int index, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<int> array, int index, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<int> array, int index, int numEntries, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<int> array, int index, int numEntries, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<int> array, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<int> array, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<int> array, int index, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<int> array, int index, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<int> array, int index, int numEntries, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<int> array, int index, int numEntries, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<int> array, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<int> array, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<int> array, int index, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<int> array, int index, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<int> array, int index, int numEntries, int value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<int> array, int index, int numEntries, int value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(long* ptr, long length, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(long* ptr, long length, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 
-            return SIMD_IndexOf((ulong*)ptr, length, (ulong)value, traversalOrder);
+            if (traversalOrder == TraversalOrder.Ascending)
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi64x(value);
+                    v256* ptr_v256 = (v256*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 4))
+                    {
+                        int mask = Avx.mm256_movemask_pd(Compare.Longs256(Avx.mm256_loadu_si256(ptr_v256), broadcast, where));
+
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHits = (uint)math.tzcnt(~mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHits = (uint)math.tzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = index + nonHits;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256++;
+                        length -= 4;
+                        index += 4;
+                    }
+
+
+                    if (Hint.Likely((int)length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Longs128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0b1111_1111;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
+                        length -= 2;
+                        index += 2;
+                    }
+                    else { }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.Longs(*(long*)ptr_v256, value, where))
+                        {
+                            result = index;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse4_2.IsSse42Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi64x(value);
+                    v128* ptr_v128 = (v128*)ptr;
+                    long index = 0;
+                    long result = -1;
+
+                    while (Hint.Likely(length >= 2))
+                    {
+                        int mask = Sse2.movemask_epi8(Compare.Longs128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0b1111_1111;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                result = index + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        
+                        ptr_v128++;
+                        length -= 2;
+                        index += 2;
+                    }
+
+
+                    if (Hint.Likely(length != 0))
+                    {
+                        if (Compare.Longs(*(long*)ptr_v128, value, where))
+                        {
+                            result = index;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse4_1.IsSse41Supported)
+                {
+                    if (where == Comparison.EqualTo || where == Comparison.NotEqualTo)
+                    {
+                        v128 broadcast = Sse2.set1_epi64x(value);
+                        v128* ptr_v128 = (v128*)ptr;
+                        long index = 0;
+                        long result = -1;
+
+                        while (Hint.Likely(length >= 2))
+                        {
+                            int mask = Sse2.movemask_epi8(Compare.Longs128(Sse2.loadu_si128(ptr_v128), broadcast, where));
+                            
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0xFFFF))
+                                {
+                                    bool onlyTheSecond = (ushort)mask == 0b1111_1111;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0))
+                                {
+                                    bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                    result = index + *(byte*)&onlyTheSecond;
+                                    goto Found;
+                                }
+                            }
+                            
+                            ptr_v128++;
+                            length -= 2;
+                            index += 2;
+                        }
+
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            if (Compare.Longs(*(long*)ptr_v128, value, where))
+                            {
+                                result = index;
+                                goto Found;
+                            }
+                            else { }
+                        }
+                        else { }
+
+
+                    Found:
+                        return result;
+                    }
+                    else
+                    {
+                        for (long i = 0; i < length; i++)
+                        {
+                            if (Compare.Longs(ptr[i], value, where))
+                            {
+                                return i;
+                            }
+                            else continue;
+                        }
+
+                        return -1;
+                    }
+                }
+                else
+                {
+                    for (long i = 0; i < length; i++)
+                    {
+                        if (Compare.Longs(ptr[i], value, where))
+                        {
+                            return i;
+                        }
+                        else continue;
+                    }
+
+                    return -1;
+                }
+            }
+            else
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    v256 broadcast = Avx.mm256_set1_epi64x(value);
+                    long index = length - 1;
+                    long result = -1;
+                    v256* endPtr_v256 = (v256*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
+                    {
+                        endPtr_v256--;
+                        int mask = Avx.mm256_movemask_pd(Compare.Longs256(Avx.mm256_loadu_si256(endPtr_v256), broadcast, where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            long nonHitsWithOffset = math.lzcnt(0b1111 ^ mask);
+
+                            if (Hint.Unlikely(mask != 0b1111))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            long nonHitsWithOffset = math.lzcnt(mask);
+
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                result = (index + 28) - nonHitsWithOffset;
+                                goto Found;
+                            }
+                        }
+                        
+                        index -= 4;
+                    }
+
+                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
+                    {
+                        endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
+                        int mask = Sse2.movemask_epi8(Compare.Longs128(Sse2.loadu_si128(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0x00FF;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0))
+                            {
+                                bool onlyTheSecond = (ushort)mask == 0xFF00;
+                                result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
+                                goto Found;
+                            }
+                        }
+                    }
+                    else { }
+
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
+                    {
+                        endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
+
+                        if (Compare.Longs(*(long*)endPtr_v256, value, where))
+                        {
+                            result = 0;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                else if (Sse4_2.IsSse42Supported)
+                {
+                    v128 broadcast = Sse2.set1_epi64x(value);
+                    long index = length - 1;
+                    long result = -1;
+                    v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                    while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
+                    {
+                        endPtr_v128--;
+                        int mask = Sse2.movemask_epi8(Compare.Longs128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+                        
+                        if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
+                        {
+                            if (Hint.Unlikely(mask != 0xFFFF))
+                            {
+                                bool onlyTheFirst = (ushort)mask == 0xFF00;
+                                result = index - *(byte*)&onlyTheFirst;
+                                goto Found;
+                            }
+                        }
+                        else
+                        {
+                            if (Hint.Unlikely(mask != 0)) 
+                            {
+                                bool onlyTheFirst = (ushort)mask == 0x00FF;
+                                result = index - *(byte*)&onlyTheFirst;
+                                goto Found;
+                            }
+                        }
+
+                        index -= 2;
+                    }
+
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
+                    {
+                        endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
+
+                        if (Compare.Longs(*(long*)endPtr_v128, value, where))
+                        {
+                            result = 0;
+                            goto Found;
+                        }
+                        else { }
+                    }
+                    else { }
+
+
+                Found:
+                    return result;
+                }
+                
+                else if (Sse4_1.IsSse41Supported)
+                {
+                    if (where == Comparison.EqualTo || where == Comparison.NotEqualTo)
+                    {
+                        v128 broadcast = Sse2.set1_epi64x(value);
+                        long index = length - 1;
+                        long result = -1;
+                        v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
+
+                        while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
+                        {
+                            endPtr_v128--;
+                            int mask = Sse2.movemask_epi8(Compare.Longs128(Sse2.loadu_si128(endPtr_v128), broadcast, where));
+                            
+                            if (where == Comparison.NotEqualTo)
+                            {
+                                if (Hint.Unlikely(mask != 0xFFFF))
+                                {
+                                    bool onlyTheFirst = (ushort)mask == 0xFF00;
+                                    result = index - *(byte*)&onlyTheFirst;
+                                    goto Found;
+                                }
+                            }
+                            else
+                            {
+                                if (Hint.Unlikely(mask != 0)) 
+                                {
+                                    bool onlyTheFirst = (ushort)mask == 0x00FF;
+                                    result = index - *(byte*)&onlyTheFirst;
+                                    goto Found;
+                                }
+                            }
+
+                            index -= 2;
+                        }
+
+                        if (Hint.Likely((long)endPtr_v128 != (long)ptr))
+                        {
+                            endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
+
+                            if (Compare.Longs(*(long*)endPtr_v128, value, where))
+                            {
+                                result = 0;
+                                goto Found;
+                            }
+                            else { }
+                        }
+                        else { }
+
+
+                    Found:
+                        return result;
+                    }
+                    else
+                    {
+                        long i = length - 1;
+
+                        while (i >= 0)
+                        {
+                            if (Compare.Longs(ptr[i], value, where))
+                            {
+                                goto Found;
+                            }
+                            else
+                            {
+                                i--;
+                            }
+                        }
+
+                    Found:
+                        return i;
+                    }
+                }
+                else
+                {
+                    long i = length - 1;
+
+                    while (i >= 0)
+                    {
+                        if (Compare.Longs(ptr[i], value, where))
+                        {
+                            goto Found;
+                        }
+                        else
+                        {
+                            i--;
+                        }
+                    }
+
+                Found:
+                    return i;
+                }
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<long> array, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<long> array, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<long> array, int index, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<long> array, int index, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<long> array, int index, int numEntries, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<long> array, int index, int numEntries, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<long> array, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<long> array, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<long> array, int index, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<long> array, int index, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<long> array, int index, int numEntries, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<long> array, int index, int numEntries, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<long> array, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<long> array, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<long> array, int index, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<long> array, int index, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<long> array, int index, int numEntries, long value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<long> array, int index, int numEntries, long value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(float* ptr, long length, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(float* ptr, long length, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 Assert.IsFalse(math.isnan(value));
@@ -2302,11 +5382,13 @@ Assert.IsFalse(math.isnan(value));
 
                     while (Hint.Likely(length >= 8))
                     {
-                        int mask = Avx.mm256_movemask_ps(Avx.mm256_cmp_ps(broadcast, Avx.mm256_loadu_ps(ptr_v256), (int)Avx.CMP.EQ_OQ));
+                        int mask = Avx.mm256_movemask_ps(Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256), broadcast, where));
+                        
+                        long nonHits = (uint)math.tzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = index + math.tzcnt(mask);
+                            result = index + nonHits;
                             goto Found;
                         }
                         else
@@ -2320,11 +5402,13 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely((int)length >= 4))
                     {
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(Avx.mm256_castps256_ps128(broadcast), Sse.loadu_ps(ptr_v256)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse.loadu_ps(ptr_v256), Avx.mm256_castps256_ps128(broadcast), where));
+                        
+                        long nonHits = (uint)math.tzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = index + math.tzcnt(mask);
+                            result = index + nonHits;
                             goto Found;
                         }
                         else
@@ -2339,9 +5423,9 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(Avx.mm256_castps256_ps128(broadcast), Sse2.cvtsi64x_si128(*(long*)ptr_v256)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castps256_ps128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -2352,8 +5436,8 @@ Assert.IsFalse(math.isnan(value));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = index + *(byte*)&onlyTheSecond;
                             goto Found;
                         }
                         else
@@ -2368,7 +5452,7 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(float*)ptr_v256 == value)
+                        if (Compare.Floats(*(float*)ptr_v256, value, where))
                         {
                             result = index;
                             goto Found;
@@ -2390,11 +5474,13 @@ Assert.IsFalse(math.isnan(value));
 
                     while (Hint.Likely(length >= 4))
                     {
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse.loadu_ps(ptr_v128)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse.loadu_ps(ptr_v128), broadcast, where));
+                        
+                        long nonHits = (uint)math.tzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = index + math.tzcnt(mask);
+                            result = index + nonHits;
                             goto Found;
                         }
                         else
@@ -2408,9 +5494,9 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse2.cvtsi64x_si128(*(long*)ptr_v128)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -2421,8 +5507,8 @@ Assert.IsFalse(math.isnan(value));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = index + *(byte*)&onlyTheSecond;
                             goto Found;
                         }
                         else
@@ -2437,7 +5523,7 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(float*)ptr_v128 == value)
+                        if (Compare.Floats(*(float*)ptr_v128, value, where))
                         {
                             result = index;
                             goto Found;
@@ -2454,7 +5540,7 @@ Assert.IsFalse(math.isnan(value));
                 {
                     for (long i = 0; i < length; i++)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.Floats(ptr[i], value, where))
                         {
                             return i;
                         }
@@ -2476,11 +5562,13 @@ Assert.IsFalse(math.isnan(value));
                     while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
                     {
                         endPtr_v256--;
-                        int mask = Avx.mm256_movemask_ps(Avx.mm256_cmp_ps(broadcast, Avx.mm256_loadu_ps(endPtr_v256), (int)Avx.CMP.EQ_OQ));
+                        int mask = Avx.mm256_movemask_ps(Compare.Floats256(Avx.mm256_loadu_ps(endPtr_v256), broadcast, where));
+                        
+                        long nonHitsWithOffset = math.lzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 24) - math.lzcnt(mask);
+                            result = (index + 24) - nonHitsWithOffset;
                             goto Found;
                         }
                         else
@@ -2492,16 +5580,14 @@ Assert.IsFalse(math.isnan(value));
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
                     {
                         endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(Avx.mm256_castsi256_si128(broadcast), Sse.loadu_ps(endPtr_v256)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse.loadu_ps(endPtr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                        
+                        long nonHitsWithOffset = math.lzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 28) - math.lzcnt(mask);
+                            result = (index + 28) - nonHitsWithOffset;
                             goto Found;
-                        }
-                        else
-                        {
-                            index -= 4;
                         }
                     }
                     else { }
@@ -2509,9 +5595,9 @@ Assert.IsFalse(math.isnan(value));
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 8))
                     {
                         endPtr_v256 = (v256*)((long*)endPtr_v256 - 1);
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(Avx.mm256_castps256_ps128(broadcast), Sse2.cvtsi64x_si128(*(long*)endPtr_v256)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)endPtr_v256), Avx.mm256_castps256_ps128(broadcast), where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -2522,23 +5608,20 @@ Assert.IsFalse(math.isnan(value));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 30) - math.lzcnt(mask);
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
                             goto Found;
-                        }
-                        else
-                        {
-                            index -= 2;
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
                     {
                         endPtr_v256 = (v256*)((float*)endPtr_v256 - 1);
 
-                        if (*(float*)endPtr_v256 == value)
+                        if (Compare.Floats(*(float*)endPtr_v256, value, where))
                         {
-                            result = index;
+                            result = 0;
                         }
                         else { }
                     }
@@ -2558,11 +5641,13 @@ Assert.IsFalse(math.isnan(value));
                     while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
                     {
                         endPtr_v128--;
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse.loadu_ps(endPtr_v128)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse.loadu_ps(endPtr_v128), broadcast, where));
+                        
+                        long nonHitsWithOffset = math.lzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 28) - math.lzcnt(mask);
+                            result = (index + 28) - nonHitsWithOffset;
                             goto Found;
                         }
                         else
@@ -2574,9 +5659,9 @@ Assert.IsFalse(math.isnan(value));
                     if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) >= 8))
                     {
                         endPtr_v128 = (v128*)((long*)endPtr_v128 - 1);
-                        int mask = Sse.movemask_ps(Sse.cmpeq_ps(broadcast, Sse2.cvtsi64x_si128(*(long*)endPtr_v128)));
+                        int mask = Sse.movemask_ps(Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)endPtr_v128), broadcast, where));
 
-                        if (Constant.IsConstantExpression(value) && value != 0)
+                        if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
                         {
                             ;
                         }
@@ -2587,23 +5672,20 @@ Assert.IsFalse(math.isnan(value));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 30) - math.lzcnt(mask);
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
                             goto Found;
-                        }
-                        else
-                        {
-                            index -= 2;
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
                     {
                         endPtr_v128 = (v128*)((float*)endPtr_v128 - 1);
 
-                        if (*(float*)endPtr_v128 == value)
+                        if (Compare.Floats(*(float*)endPtr_v128, value, where))
                         {
-                            result = index;
+                            result = 0;
                             goto Found;
                         }
                         else { }
@@ -2620,7 +5702,7 @@ Assert.IsFalse(math.isnan(value));
 
                     while (i >= 0)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.Floats(ptr[i], value, where))
                         {
                             goto Found;
                         }
@@ -2637,74 +5719,74 @@ Assert.IsFalse(math.isnan(value));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<float> array, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<float> array, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<float> array, int index, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index, array.Length);
-
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<float> array, int index, int numEntries, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
-
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<float> array, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
-        {
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<float> array, int index, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<float> array, int index, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<float> array, int index, int numEntries, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<float> array, int index, int numEntries, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<float> array, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<float> array, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<float> array, int index, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<float> array, int index, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<float> array, int index, int numEntries, float value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<float> array, int index, int numEntries, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<float> array, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<float> array, int index, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index, array.Length);
+
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int SIMD_IndexOf(this NativeSlice<float> array, int index, int numEntries, float value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        {
+Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+
+            return (int)SIMD_IndexOf((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long SIMD_IndexOf(double* ptr, long length, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static long SIMD_IndexOf(double* ptr, long length, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsNonNegative(length);
 Assert.IsFalse(math.isnan(value));
@@ -2720,11 +5802,13 @@ Assert.IsFalse(math.isnan(value));
 
                     while (Hint.Likely(length >= 4))
                     {
-                        int mask = Avx.mm256_movemask_pd(Avx.mm256_cmp_pd(broadcast, Avx.mm256_loadu_pd(ptr_v256), (int)Avx.CMP.EQ_OQ));
+                        int mask = Avx.mm256_movemask_pd(Compare.Doubles256(Avx.mm256_loadu_pd(ptr_v256), broadcast, where));
+                        
+                        long nonHits = (uint)math.tzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = index + math.tzcnt(mask);
+                            result = index + nonHits;
                             goto Found;
                         }
                         else
@@ -2738,12 +5822,12 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        int mask = Sse2.movemask_pd(Sse2.cmpeq_pd(Avx.mm256_castpd256_pd128(broadcast), Sse.loadu_ps(ptr_v256)));
+                        int mask = Sse2.movemask_pd(Compare.Doubles128(Sse.loadu_ps(ptr_v256), Avx.mm256_castpd256_pd128(broadcast), where));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            bool onlyTheSecondIsEqualToValue = mask == 2;
-                            result = index + *(byte*)&onlyTheSecondIsEqualToValue;
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = index + *(byte*)&onlyTheSecond;
                             goto Found;
                         }
                         else
@@ -2758,7 +5842,7 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(double*)ptr_v256 == value)
+                        if (Compare.Doubles(*(double*)ptr_v256, value, where))
                         {
                             result = index;
                             goto Found;
@@ -2780,11 +5864,12 @@ Assert.IsFalse(math.isnan(value));
 
                     while (Hint.Likely(length >= 2))
                     {
-                        int mask = Sse2.movemask_pd(Sse2.cmpeq_pd(broadcast, Sse.loadu_ps(ptr_v128)));
+                        int mask = Sse2.movemask_pd(Compare.Doubles128(Sse.loadu_ps(ptr_v128), broadcast, where));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = index + math.tzcnt(mask);
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = index + *(byte*)&onlyTheSecond;
                             goto Found;
                         }
                         else
@@ -2798,7 +5883,7 @@ Assert.IsFalse(math.isnan(value));
 
                     if (Hint.Likely(length != 0))
                     {
-                        if (*(double*)ptr_v128 == value)
+                        if (Compare.Doubles(*(double*)ptr_v128, value, where))
                         {
                             result = index;
                             goto Found;
@@ -2815,7 +5900,7 @@ Assert.IsFalse(math.isnan(value));
                 {
                     for (long i = 0; i < length; i++)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.Doubles(ptr[i], value, where))
                         {
                             return i;
                         }
@@ -2837,11 +5922,13 @@ Assert.IsFalse(math.isnan(value));
                     while (Hint.Likely((long)endPtr_v256 - (long)ptr >= 32))
                     {
                         endPtr_v256--;
-                        int mask = Avx.mm256_movemask_pd(Avx.mm256_cmp_pd(broadcast, Avx.mm256_loadu_pd(endPtr_v256), (int)Avx.CMP.EQ_OQ));
+                        int mask = Avx.mm256_movemask_pd(Compare.Doubles256(Avx.mm256_loadu_pd(endPtr_v256), broadcast, where));
+                        
+                        long nonHitsWithOffset = math.lzcnt(mask);
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 28) - math.lzcnt(mask);
+                            result = (index + 28) - nonHitsWithOffset;
                             goto Found;
                         }
                         else
@@ -2853,27 +5940,24 @@ Assert.IsFalse(math.isnan(value));
                     if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) >= 16))
                     {
                         endPtr_v256 = (v256*)((v128*)endPtr_v256 - 1);
-                        int mask = Sse2.movemask_pd(Sse2.cmpeq_pd(Avx.mm256_castpd256_pd128(broadcast), Sse.loadu_ps(endPtr_v256)));
+                        int mask = Sse2.movemask_pd(Compare.Doubles128(Sse.loadu_ps(endPtr_v256), Avx.mm256_castpd256_pd128(broadcast), where));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 30) - math.lzcnt(mask);
+                            bool onlyTheSecond = mask == 0b0010;
+                            result = ((byte)length & (byte)1) + *(byte*)&onlyTheSecond;
                             goto Found;
-                        }
-                        else
-                        {
-                            index -= 2;
                         }
                     }
                     else { }
 
-                    if (Hint.Likely((int)((long)endPtr_v256 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v256 != (long)ptr))
                     {
                         endPtr_v256 = (v256*)((double*)endPtr_v256 - 1);
 
-                        if (*(double*)endPtr_v256 == value)
+                        if (Compare.Doubles(*(double*)endPtr_v256, value, where))
                         {
-                            result = index;
+                            result = 0;
                         }
                         else { }
                     }
@@ -2885,7 +5969,7 @@ Assert.IsFalse(math.isnan(value));
                 }
                 else if (Sse2.IsSse2Supported)
                 {
-                    v128 broadcast = Sse2.set1_epi64x((long)value);
+                    v128 broadcast = Sse2.set1_pd(value);
                     long index = length - 1;
                     long result = -1;
                     v128* endPtr_v128 = (v128*)(ptr + length); // this points to the "element" right after the last element. THIS IS INTENTIONAL
@@ -2893,11 +5977,12 @@ Assert.IsFalse(math.isnan(value));
                     while (Hint.Likely((long)endPtr_v128 - (long)ptr >= 16))
                     {
                         endPtr_v128--;
-                        int mask = Sse2.movemask_pd(Sse2.cmpeq_pd(broadcast, Sse.loadu_ps(endPtr_v128)));
+                        int mask = Sse2.movemask_pd(Compare.Doubles128(Sse.loadu_ps(endPtr_v128), broadcast, where));
 
                         if (Hint.Unlikely(mask != 0))
                         {
-                            result = (index + 30) - math.lzcnt(mask);
+                            bool onlyTheFirst = mask == 0b0001;
+                            result = index - *(byte*)&onlyTheFirst;
                             goto Found;
                         }
                         else
@@ -2906,13 +5991,13 @@ Assert.IsFalse(math.isnan(value));
                         }
                     }
 
-                    if (Hint.Likely((int)((long)endPtr_v128 - (long)ptr) != 0))
+                    if (Hint.Likely((long)endPtr_v128 != (long)ptr))
                     {
                         endPtr_v128 = (v128*)((double*)endPtr_v128 - 1);
 
-                        if (*(double*)endPtr_v128 == value)
+                        if (Compare.Doubles(*(double*)endPtr_v128, value, where))
                         {
-                            result = index;
+                            result = 0;
                             goto Found;
                         }
                         else { }
@@ -2929,7 +6014,7 @@ Assert.IsFalse(math.isnan(value));
 
                     while (i >= 0)
                     {
-                        if (ptr[i] == value)
+                        if (Compare.Doubles(ptr[i], value, where))
                         {
                             goto Found;
                         }
@@ -2946,69 +6031,69 @@ Assert.IsFalse(math.isnan(value));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<double> array, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<double> array, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<double> array, int index, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<double> array, int index, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeArray<double> array, int index, int numEntries, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeArray<double> array, int index, int numEntries, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<double> array, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<double> array, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<double> array, int index, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<double> array, int index, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeList<double> array, int index, int numEntries, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeList<double> array, int index, int numEntries, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<double> array, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<double> array, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr(), array.Length, value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr(), array.Length, value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<double> array, int index, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<double> array, int index, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index, array.Length);
 
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, (array.Length - index), value, where, traversalOrder);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SIMD_IndexOf(this NativeSlice<double> array, int index, int numEntries, double value, TraversalOrder traversalOrder = TraversalOrder.Ascending)
+        public static int SIMD_IndexOf(this NativeSlice<double> array, int index, int numEntries, double value, Comparison where = Comparison.EqualTo, TraversalOrder traversalOrder = TraversalOrder.Ascending)
         {
 Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 
-            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, traversalOrder);
+            return (int)SIMD_IndexOf((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, traversalOrder);
         }
     }
 }

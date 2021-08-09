@@ -20,36 +20,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi8(byte.MinValue);
-                v256 acc1 = Avx.mm256_set1_epi8(byte.MinValue);
-                v256 acc2 = Avx.mm256_set1_epi8(byte.MinValue);
-                v256 acc3 = Avx.mm256_set1_epi8(byte.MinValue);
-
-                while (Hint.Likely(length >= 128))
+                v256 max0 = Avx.mm256_set1_epi8(byte.MinValue);
+                
+                if (Hint.Likely(length >= 128))
                 {
-                    acc0 = Avx2.mm256_max_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_max_epu8(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_max_epu8(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_max_epu8(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi8(byte.MinValue);
+                    v256 max2 = Avx.mm256_set1_epi8(byte.MinValue);
+                    v256 max3 = Avx.mm256_set1_epi8(byte.MinValue);
 
-                    length -= 128;
+                    do
+                    {
+                        max0 = Avx2.mm256_max_epu8(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Avx2.mm256_max_epu8(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Avx2.mm256_max_epu8(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Avx2.mm256_max_epu8(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 128;
+                    } 
+                    while (Hint.Likely(length >= 128));
+
+                    max0 = Avx2.mm256_max_epu8(max0, max1);
+                    max2 = Avx2.mm256_max_epu8(max2, max3);
+                    max0 = Avx2.mm256_max_epu8(max0, max2);
                 }
-
-                acc0 = Avx2.mm256_max_epu8(acc0, acc1);
-                acc2 = Avx2.mm256_max_epu8(acc2, acc3);
-                acc0 = Avx2.mm256_max_epu8(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 32))
                 {
-                    acc0 = Avx2.mm256_max_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Avx2.mm256_max_epu8(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 32))
                     {
-                        acc0 = Avx2.mm256_max_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Avx2.mm256_max_epu8(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 32))
                         {
-                            acc0 = Avx2.mm256_max_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Avx2.mm256_max_epu8(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 32;
                         }
                         else
@@ -64,88 +69,93 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse2.max_epu8(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Sse2.max_epu8(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc128 = Sse2.max_epu8(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Sse2.max_epu8(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 16;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse2.max_epu8(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse2.max_epu8(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse2.max_epu8(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse2.max_epu8(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 8;
                 }
 
-                acc128 = Sse2.max_epu8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse2.max_epu8(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse2.max_epu8(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    max128 = Sse2.max_epu8(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse2.max_epu8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse2.max_epu8(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse2.max_epu8(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
+                    max128 = Sse2.max_epu8(max128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
                     ptr_v256 = (v256*)((short*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse2.max_epu8(acc128, Sse2.bsrli_si128(acc128, 1 * sizeof(byte)));
+                max128 = Sse2.max_epu8(max128, Sse2.bsrli_si128(max128, 1 * sizeof(byte)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse2.max_epu8(acc128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).Byte0;
+                    return Sse2.max_epu8(max128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).Byte0;
                 }
                 else
                 {
-                    return acc128.Byte0;
+                    return max128.Byte0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
-                v128 acc1 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
-                v128 acc2 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
-                v128 acc3 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
-
-                while (Hint.Likely(length >= 64))
+                v128 max0 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Sse2.max_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Sse2.max_epu8(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Sse2.max_epu8(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Sse2.max_epu8(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
+                    v128 max2 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
+                    v128 max3 = Sse2.set1_epi8(unchecked((sbyte)byte.MinValue));
 
-                    length -= 64;
+                    do
+                    {
+                        max0 = Sse2.max_epu8(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Sse2.max_epu8(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Sse2.max_epu8(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Sse2.max_epu8(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    max0 = Sse2.max_epu8(max0, max1);
+                    max2 = Sse2.max_epu8(max2, max3);
+                    max0 = Sse2.max_epu8(max0, max2);
                 }
-
-                acc0 = Sse2.max_epu8(acc0, acc1);
-                acc2 = Sse2.max_epu8(acc2, acc3);
-                acc0 = Sse2.max_epu8(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Sse2.max_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Sse2.max_epu8(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Sse2.max_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Sse2.max_epu8(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Sse2.max_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Sse2.max_epu8(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 16;
                         }
                         else
@@ -161,49 +171,49 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Sse2.max_epu8(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Sse2.max_epu8(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Sse2.max_epu8(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Sse2.max_epu8(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 8;
                 }
 
-                acc0 = Sse2.max_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Sse2.max_epu8(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Sse2.max_epu8(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    max0 = Sse2.max_epu8(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Sse2.max_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Sse2.max_epu8(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse2.max_epu8(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
+                    max0 = Sse2.max_epu8(max0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
                     ptr_v128 = (v128*)((short*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Sse2.max_epu8(acc0, Sse2.bsrli_si128(acc0, 1 * sizeof(byte)));
+                max0 = Sse2.max_epu8(max0, Sse2.bsrli_si128(max0, 1 * sizeof(byte)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Sse2.max_epu8(acc0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).Byte0;
+                        return Sse2.max_epu8(max0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).Byte0;
                     }
                     else
                     {
-                        return (byte)math.max((uint)acc0.Byte0, (uint)(*(byte*)ptr_v128));
+                        return Sse2.max_epu8(max0, Sse2.cvtsi32_si128(*(byte*)ptr_v128)).Byte0;
                     }
                 }
                 else
                 {
-                    return acc0.Byte0;
+                    return max0.Byte0;
                 }
             }
             else
@@ -314,36 +324,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
-                v256 acc1 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
-                v256 acc2 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
-                v256 acc3 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
-
-                while (Hint.Likely(length >= 64))
+                v256 max0 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Avx2.mm256_max_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_max_epu16(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_max_epu16(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_max_epu16(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
+                    v256 max2 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
+                    v256 max3 = Avx.mm256_set1_epi16(unchecked((short)ushort.MinValue));
 
-                    length -= 64;
+                    do
+                    {
+                        max0 = Avx2.mm256_max_epu16(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Avx2.mm256_max_epu16(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Avx2.mm256_max_epu16(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Avx2.mm256_max_epu16(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    max0 = Avx2.mm256_max_epu16(max0, max1);
+                    max2 = Avx2.mm256_max_epu16(max2, max3);
+                    max0 = Avx2.mm256_max_epu16(max0, max2);
                 }
-
-                acc0 = Avx2.mm256_max_epu16(acc0, acc1);
-                acc2 = Avx2.mm256_max_epu16(acc2, acc3);
-                acc0 = Avx2.mm256_max_epu16(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Avx2.mm256_max_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Avx2.mm256_max_epu16(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Avx2.mm256_max_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Avx2.mm256_max_epu16(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Avx2.mm256_max_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Avx2.mm256_max_epu16(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 16;
                         }
                         else
@@ -358,79 +373,84 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.max_epu16(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Sse4_1.max_epu16(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse4_1.max_epu16(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Sse4_1.max_epu16(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 8;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse4_1.max_epu16(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse4_1.max_epu16(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.max_epu16(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse4_1.max_epu16(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.max_epu16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse4_1.max_epu16(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.max_epu16(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    max128 = Sse4_1.max_epu16(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.max_epu16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse4_1.max_epu16(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse4_1.max_epu16(acc128, Sse2.insert_epi16(cmp, *(ushort*)ptr_v256, 0)).UShort0;
+                    return Sse4_1.max_epu16(max128, Sse2.insert_epi16(cmp, *(ushort*)ptr_v256, 0)).UShort0;
                 }
                 else
                 {
-                    return acc128.UShort0;
+                    return max128.UShort0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
-                v128 acc1 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
-                v128 acc2 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
-                v128 acc3 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
-
-                while (Hint.Likely(length >= 32))
+                v128 max0 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Max(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Max(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Max(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
+                    v128 max2 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
+                    v128 max3 = Sse2.set1_epi16(unchecked((short)ushort.MinValue));
 
-                    length -= 32;
+                    do
+                    {
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Max(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Max(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Max(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    max0 = Max(max0, max1);
+                    max2 = Max(max2, max3);
+                    max0 = Max(max0, max2);
                 }
-
-                acc0 = Max(acc0, acc1);
-                acc2 = Max(acc2, acc3);
-                acc0 = Max(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 8;
                         }
                         else
@@ -446,42 +466,42 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Max(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Max(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Max(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Max(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Max(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    max0 = Max(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Max(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Max(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Sse4_1.max_epu16(acc0, Sse2.insert_epi16(cmp, *(ushort*)ptr_v128, 0)).UShort0;
+                        return Sse4_1.max_epu16(max0, Sse2.insert_epi16(cmp, *(ushort*)ptr_v128, 0)).UShort0;
                     }
                     else
                     {
-                        return (ushort)math.max((uint)acc0.UShort0, *(ushort*)ptr_v128);
+                        return (ushort)math.max((uint)max0.UShort0, *(ushort*)ptr_v128);
                     }
                 }
                 else
                 {
-                    return acc0.UShort0;
+                    return max0.UShort0;
                 }
             }
             else
@@ -594,36 +614,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
-                v256 acc1 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
-                v256 acc2 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
-                v256 acc3 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
-
-                while (Hint.Likely(length >= 32))
+                v256 max0 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Avx2.mm256_max_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_max_epu32(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_max_epu32(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_max_epu32(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
+                    v256 max2 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
+                    v256 max3 = Avx.mm256_set1_epi32(unchecked((int)uint.MinValue));
 
-                    length -= 32;
+                    do
+                    {
+                        max0 = Avx2.mm256_max_epu32(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Avx2.mm256_max_epu32(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Avx2.mm256_max_epu32(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Avx2.mm256_max_epu32(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    max0 = Avx2.mm256_max_epu32(max0, max1);
+                    max2 = Avx2.mm256_max_epu32(max2, max3);
+                    max0 = Avx2.mm256_max_epu32(max0, max2);
                 }
-
-                acc0 = Avx2.mm256_max_epu32(acc0, acc1);
-                acc2 = Avx2.mm256_max_epu32(acc2, acc3);
-                acc0 = Avx2.mm256_max_epu32(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Avx2.mm256_max_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Avx2.mm256_max_epu32(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Avx2.mm256_max_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Avx2.mm256_max_epu32(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Avx2.mm256_max_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Avx2.mm256_max_epu32(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 8;
                         }
                         else
@@ -638,68 +663,73 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.max_epu32(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Sse4_1.max_epu32(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.max_epu32(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Sse4_1.max_epu32(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.max_epu32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse4_1.max_epu32(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.max_epu32(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse4_1.max_epu32(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.max_epu32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse4_1.max_epu32(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse4_1.max_epu32(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).UInt0;
+                    return Sse4_1.max_epu32(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).UInt0;
                 }
                 else
                 {
-                    return acc128.UInt0;
+                    return max128.UInt0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
-                v128 acc1 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
-                v128 acc2 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
-                v128 acc3 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
-
-                while (Hint.Likely(length >= 16))
+                v128 max0 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Max(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Max(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Max(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
+                    v128 max2 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
+                    v128 max3 = Sse2.set1_epi32(unchecked((int)uint.MinValue));
 
-                    length -= 16;
+                    do
+                    {
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Max(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Max(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Max(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    max0 = Max(max0, max1);
+                    max2 = Max(max2, max3);
+                    max0 = Max(max0, max2);
                 }
-
-                acc0 = Max(acc0, acc1);
-                acc2 = Max(acc2, acc3);
-                acc0 = Max(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 4;
                         }
                         else
@@ -715,32 +745,32 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                acc0 = Max(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Max(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Max(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Max(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Max(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Max(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).UInt0;
+                        return Max(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).UInt0;
                     }
                     else
                     {
-                        return Max(acc0, new v128(*(int*)ptr_v128, 0, 0, 0)).UInt0;
+                        return math.max(max0.UInt0, *(uint*)ptr_v128);
                     }
                 }
                 else
                 {
-                    return acc0.UInt0;
+                    return max0.UInt0;
                 }
             }
             else
@@ -861,38 +891,43 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
-                v256 acc1 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
-                v256 acc2 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
-                v256 acc3 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
+                v256 max0 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
 
                 v256 mask = Avx.mm256_set1_epi64x(1L << 63);
-
-                while (Hint.Likely(length >= 16))
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    acc1 = Max256(acc1, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    acc2 = Max256(acc2, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    acc3 = Max256(acc3, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                    v256 max1 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
+                    v256 max2 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
+                    v256 max3 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MinValue));
 
-                    length -= 16;
+                    do
+                    {
+                        max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        max1 = Max256(max1, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        max2 = Max256(max2, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        max3 = Max256(max3, Avx.mm256_loadu_si256(ptr_v256++), mask);
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    max0 = Max256(max0, max1, mask);
+                    max2 = Max256(max2, max3, mask);
+                    max0 = Max256(max0, max2, mask);
                 }
-
-                acc0 = Max256(acc0, acc1, mask);
-                acc2 = Max256(acc2, acc3, mask);
-                acc0 = Max256(acc0, acc2, mask);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                    max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++), mask);
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++), mask);
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                            max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++), mask);
                             length -= 3 * 4;
                         }
                         else
@@ -907,59 +942,64 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Max128(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1), Avx.mm256_castsi256_si128(mask));
+                v128 max128 = Max128(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1), Avx.mm256_castsi256_si128(mask));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Max128(acc128, Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask));
+                    max128 = Max128(max128, Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.max(*(ulong*)ptr_v256, math.max(acc128.ULong0, acc128.ULong1));
+                    return math.max(*(ulong*)ptr_v256, math.max(max128.ULong0, max128.ULong1));
                 }
                 else
                 {
-                    return math.max(acc128.ULong0, acc128.ULong1);
+                    return math.max(max128.ULong0, max128.ULong1);
                 }
             }
             else if (Sse4_2.IsSse42Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
-                v128 acc1 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
-                v128 acc2 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
-                v128 acc3 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
+                v128 max0 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
 
                 v128 mask = Sse2.set1_epi64x(1L << 63);
-
-                while (Hint.Likely(length >= 8))
+                
+                if (Hint.Likely(length >= 8))
                 {
-                    acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
-                    acc1 = Max128(acc1, Sse2.loadu_si128(ptr_v128++), mask);
-                    acc2 = Max128(acc2, Sse2.loadu_si128(ptr_v128++), mask);
-                    acc3 = Max128(acc3, Sse2.loadu_si128(ptr_v128++), mask);
+                    v128 max1 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
+                    v128 max2 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
+                    v128 max3 = Sse2.set1_epi64x(unchecked((long)ulong.MinValue));
 
-                    length -= 8;
+                    do
+                    {
+                        max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++), mask);
+                        max1 = Max128(max1, Sse2.loadu_si128(ptr_v128++), mask);
+                        max2 = Max128(max2, Sse2.loadu_si128(ptr_v128++), mask);
+                        max3 = Max128(max3, Sse2.loadu_si128(ptr_v128++), mask);
+
+                        length -= 8;
+                    } 
+                    while (Hint.Likely(length >= 8));
+
+                    max0 = Max128(max0, max1, mask);
+                    max2 = Max128(max2, max3, mask);
+                    max0 = Max128(max0, max2, mask);
                 }
-
-                acc0 = Max128(acc0, acc1, mask);
-                acc2 = Max128(acc2, acc3, mask);
-                acc0 = Max128(acc0, acc2, mask);
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
+                    max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++), mask);
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
+                        max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++), mask);
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
+                            max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++), mask);
                             length -= 3 * 2;
                         }
                         else
@@ -976,11 +1016,11 @@ Assert.IsNonNegative(length);
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.max(*(ulong*)ptr_v128, math.max(acc0.ULong0, acc0.ULong1));
+                    return math.max(*(ulong*)ptr_v128, math.max(max0.ULong0, max0.ULong1));
                 }
                 else
                 {
-                    return math.max(acc0.ULong0, acc0.ULong1);
+                    return math.max(max0.ULong0, max0.ULong1);
                 }
             }
             else
@@ -1090,36 +1130,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
-                v256 acc1 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
-                v256 acc2 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
-                v256 acc3 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
-
-                while (Hint.Likely(length >= 128))
+                v256 max0 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
+                
+                if (Hint.Likely(length >= 128))
                 {
-                    acc0 = Avx2.mm256_max_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_max_epi8(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_max_epi8(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_max_epi8(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
+                    v256 max2 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
+                    v256 max3 = Avx.mm256_set1_epi8(unchecked((byte)sbyte.MinValue));
 
-                    length -= 128;
+                    do
+                    {
+                        max0 = Avx2.mm256_max_epi8(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Avx2.mm256_max_epi8(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Avx2.mm256_max_epi8(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Avx2.mm256_max_epi8(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 128;
+                    } 
+                    while (Hint.Likely(length >= 128));
+
+                    max0 = Avx2.mm256_max_epi8(max0, max1);
+                    max2 = Avx2.mm256_max_epi8(max2, max3);
+                    max0 = Avx2.mm256_max_epi8(max0, max2);
                 }
-
-                acc0 = Avx2.mm256_max_epi8(acc0, acc1);
-                acc2 = Avx2.mm256_max_epi8(acc2, acc3);
-                acc0 = Avx2.mm256_max_epi8(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 32))
                 {
-                    acc0 = Avx2.mm256_max_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Avx2.mm256_max_epi8(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 32))
                     {
-                        acc0 = Avx2.mm256_max_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Avx2.mm256_max_epi8(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 32))
                         {
-                            acc0 = Avx2.mm256_max_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Avx2.mm256_max_epi8(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 32;
                         }
                         else
@@ -1134,88 +1179,93 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.max_epi8(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Sse4_1.max_epi8(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc128 = Sse4_1.max_epi8(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Sse4_1.max_epi8(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 16;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse4_1.max_epi8(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse4_1.max_epi8(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse4_1.max_epi8(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse4_1.max_epi8(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 8;
                 }
 
-                acc128 = Sse4_1.max_epi8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse4_1.max_epi8(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.max_epi8(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    max128 = Sse4_1.max_epi8(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.max_epi8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse4_1.max_epi8(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.max_epi8(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
+                    max128 = Sse4_1.max_epi8(max128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
                     ptr_v256 = (v256*)((short*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.max_epi8(acc128, Sse2.bsrli_si128(acc128, 1 * sizeof(sbyte)));
+                max128 = Sse4_1.max_epi8(max128, Sse2.bsrli_si128(max128, 1 * sizeof(sbyte)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return (sbyte)math.max((int)acc128.SByte0, (int)(*(sbyte*)ptr_v256));
+                    return Sse4_1.max_epi8(max128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).SByte0;
                 }
                 else
                 {
-                    return acc128.SByte0;
+                    return max128.SByte0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi8(sbyte.MinValue);
-                v128 acc1 = Sse2.set1_epi8(sbyte.MinValue);
-                v128 acc2 = Sse2.set1_epi8(sbyte.MinValue);
-                v128 acc3 = Sse2.set1_epi8(sbyte.MinValue);
-
-                while (Hint.Likely(length >= 64))
+                v128 max0 = Sse2.set1_epi8(sbyte.MinValue);
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Max(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Max(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Max(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi8(sbyte.MinValue);
+                    v128 max2 = Sse2.set1_epi8(sbyte.MinValue);
+                    v128 max3 = Sse2.set1_epi8(sbyte.MinValue);
 
-                    length -= 64;
+                    do
+                    {
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Max(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Max(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Max(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    max0 = Max(max0, max1);
+                    max2 = Max(max2, max3);
+                    max0 = Max(max0, max2);
                 }
-
-                acc0 = Max(acc0, acc1);
-                acc2 = Max(acc2, acc3);
-                acc0 = Max(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 16;
                         }
                         else
@@ -1231,63 +1281,49 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Max(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    if (Sse4_1.IsSse41Supported)
-                    {
-                        acc0 = Sse4_1.max_epi8(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
-                    }
-                    else
-                    {
-                        acc0 = Max(acc0, new v128(*(long*)ptr_v128, 0));
-                    }
+                    max0 = Max(max0, new v128(*(long*)ptr_v128, 0));
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 8;
                 }
 
-                acc0 = Sse2.max_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    if (Sse4_1.IsSse41Supported)
-                    {
-                        acc0 = Sse4_1.max_epi8(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
-                    }
-                    else
-                    {
-                        acc0 = Max(acc0, new v128(*(int*)ptr_v128, 0, 0, 0));
-                    }
+                    max0 = Max(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Max(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Max(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Max(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
+                    max0 = Max(max0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
                     ptr_v128 = (v128*)((short*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Max(acc0, Sse2.bsrli_si128(acc0, 1 * sizeof(sbyte)));
+                max0 = Max(max0, Sse2.bsrli_si128(max0, 1 * sizeof(sbyte)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Sse4_1.max_epi8(acc0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).SByte0;
+                        return Sse4_1.max_epi8(max0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).SByte0;
                     }
                     else
                     {
-                        return (sbyte)math.max((int)acc0.SByte0, (int)(*(sbyte*)ptr_v128));
+                        return (sbyte)math.max((int)max0.SByte0, (int)(*(sbyte*)ptr_v128));
                     }
                 }
                 else
                 {
-                    return acc0.SByte0;
+                    return max0.SByte0;
                 }
             }
             else
@@ -1378,36 +1414,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi16(short.MinValue);
-                v256 acc1 = Avx.mm256_set1_epi16(short.MinValue);
-                v256 acc2 = Avx.mm256_set1_epi16(short.MinValue);
-                v256 acc3 = Avx.mm256_set1_epi16(short.MinValue);
-
-                while (Hint.Likely(length >= 64))
+                v256 max0 = Avx.mm256_set1_epi16(short.MinValue);
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Avx2.mm256_max_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_max_epi16(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_max_epi16(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_max_epi16(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi16(short.MinValue);
+                    v256 max2 = Avx.mm256_set1_epi16(short.MinValue);
+                    v256 max3 = Avx.mm256_set1_epi16(short.MinValue);
 
-                    length -= 64;
+                    do
+                    {
+                        max0 = Avx2.mm256_max_epi16(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Avx2.mm256_max_epi16(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Avx2.mm256_max_epi16(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Avx2.mm256_max_epi16(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    max0 = Avx2.mm256_max_epi16(max0, max1);
+                    max2 = Avx2.mm256_max_epi16(max2, max3);
+                    max0 = Avx2.mm256_max_epi16(max0, max2);
                 }
-
-                acc0 = Avx2.mm256_max_epi16(acc0, acc1);
-                acc2 = Avx2.mm256_max_epi16(acc2, acc3);
-                acc0 = Avx2.mm256_max_epi16(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Avx2.mm256_max_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Avx2.mm256_max_epi16(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Avx2.mm256_max_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Avx2.mm256_max_epi16(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Avx2.mm256_max_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Avx2.mm256_max_epi16(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 16;
                         }
                         else
@@ -1422,79 +1463,84 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse2.max_epi16(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Sse2.max_epi16(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse2.max_epi16(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Sse2.max_epi16(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 8;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse2.max_epi16(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse2.max_epi16(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse2.max_epi16(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse2.max_epi16(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse2.max_epi16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse2.max_epi16(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse2.max_epi16(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    max128 = Sse2.max_epi16(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse2.max_epi16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse2.max_epi16(max128, Sse2.shufflelo_epi16(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse2.max_epi16(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0)).SShort0;
+                    return Sse2.max_epi16(max128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0)).SShort0;
                 }
                 else
                 {
-                    return acc128.SShort0;
+                    return max128.SShort0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi16(short.MinValue);
-                v128 acc1 = Sse2.set1_epi16(short.MinValue);
-                v128 acc2 = Sse2.set1_epi16(short.MinValue);
-                v128 acc3 = Sse2.set1_epi16(short.MinValue);
-
-                while (Hint.Likely(length >= 32))
+                v128 max0 = Sse2.set1_epi16(short.MinValue);
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Sse2.max_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Sse2.max_epi16(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Sse2.max_epi16(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Sse2.max_epi16(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi16(short.MinValue);
+                    v128 max2 = Sse2.set1_epi16(short.MinValue);
+                    v128 max3 = Sse2.set1_epi16(short.MinValue);
 
-                    length -= 32;
+                    do
+                    {
+                        max0 = Sse2.max_epi16(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Sse2.max_epi16(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Sse2.max_epi16(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Sse2.max_epi16(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    max0 = Sse2.max_epi16(max0, max1);
+                    max2 = Sse2.max_epi16(max2, max3);
+                    max0 = Sse2.max_epi16(max0, max2);
                 }
-
-                acc0 = Sse2.max_epi16(acc0, acc1);
-                acc2 = Sse2.max_epi16(acc2, acc3);
-                acc0 = Sse2.max_epi16(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Sse2.max_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Sse2.max_epi16(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Sse2.max_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Sse2.max_epi16(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Sse2.max_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Sse2.max_epi16(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 8;
                         }
                         else
@@ -1510,35 +1556,35 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Sse2.max_epi16(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Sse2.max_epi16(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Sse2.max_epi16(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Sse2.max_epi16(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Sse2.max_epi16(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Sse2.max_epi16(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse2.max_epi16(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    max0 = Sse2.max_epi16(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Sse2.max_epi16(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Sse2.max_epi16(max0, Sse2.shufflelo_epi16(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse2.max_epi16(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0)).SShort0;
+                    return Sse2.max_epi16(max0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0)).SShort0;
                 }
                 else
                 {
-                    return acc0.SShort0;
+                    return max0.SShort0;
                 }
             }
             else
@@ -1648,36 +1694,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi32(int.MinValue);
-                v256 acc1 = Avx.mm256_set1_epi32(int.MinValue);
-                v256 acc2 = Avx.mm256_set1_epi32(int.MinValue);
-                v256 acc3 = Avx.mm256_set1_epi32(int.MinValue);
-
-                while (Hint.Likely(length >= 32))
+                v256 max0 = Avx.mm256_set1_epi32(int.MinValue);
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Avx2.mm256_max_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_max_epi32(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_max_epi32(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_max_epi32(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi32(int.MinValue);
+                    v256 max2 = Avx.mm256_set1_epi32(int.MinValue);
+                    v256 max3 = Avx.mm256_set1_epi32(int.MinValue);
 
-                    length -= 32;
+                    do
+                    {
+                        max0 = Avx2.mm256_max_epi32(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Avx2.mm256_max_epi32(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Avx2.mm256_max_epi32(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Avx2.mm256_max_epi32(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    max0 = Avx2.mm256_max_epi32(max0, max1);
+                    max2 = Avx2.mm256_max_epi32(max2, max3);
+                    max0 = Avx2.mm256_max_epi32(max0, max2);
                 }
-
-                acc0 = Avx2.mm256_max_epi32(acc0, acc1);
-                acc2 = Avx2.mm256_max_epi32(acc2, acc3);
-                acc0 = Avx2.mm256_max_epi32(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Avx2.mm256_max_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Avx2.mm256_max_epi32(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Avx2.mm256_max_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Avx2.mm256_max_epi32(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Avx2.mm256_max_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Avx2.mm256_max_epi32(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 8;
                         }
                         else
@@ -1692,68 +1743,73 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.max_epi32(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Sse4_1.max_epi32(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.max_epi32(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Sse4_1.max_epi32(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.max_epi32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse4_1.max_epi32(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.max_epi32(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse4_1.max_epi32(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.max_epi32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse4_1.max_epi32(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse4_1.max_epi32(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).SInt0;
+                    return Sse4_1.max_epi32(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).SInt0;
                 }
                 else
                 {
-                    return acc128.SInt0;
+                    return max128.SInt0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi32(int.MinValue);
-                v128 acc1 = Sse2.set1_epi32(int.MinValue);
-                v128 acc2 = Sse2.set1_epi32(int.MinValue);
-                v128 acc3 = Sse2.set1_epi32(int.MinValue);
-
-                while (Hint.Likely(length >= 16))
+                v128 max0 = Sse2.set1_epi32(int.MinValue);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Max(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Max(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Max(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi32(int.MinValue);
+                    v128 max2 = Sse2.set1_epi32(int.MinValue);
+                    v128 max3 = Sse2.set1_epi32(int.MinValue);
 
-                    length -= 16;
+                    do
+                    {
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Max(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Max(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Max(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    max0 = Max(max0, max1);
+                    max2 = Max(max2, max3);
+                    max0 = Max(max0, max2);
                 }
-
-                acc0 = Max(acc0, acc1);
-                acc2 = Max(acc2, acc3);
-                acc0 = Max(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Max(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Max(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 4;
                         }
                         else
@@ -1768,25 +1824,32 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Max(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Max(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Max(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Max(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Max(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Max(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).SInt0;
+                    if (Sse4_1.IsSse41Supported)
+                    {
+                        return Max(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).SInt0;
+                    }
+                    else
+                    {
+                        return math.max(max0.SInt0, *(int*)ptr_v128);
+                    }
                 }
                 else
                 {
-                    return acc0.SInt0;
+                    return max0.SInt0;
                 }
             }
             else
@@ -1887,36 +1950,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi64x(long.MinValue);
-                v256 acc1 = Avx.mm256_set1_epi64x(long.MinValue);
-                v256 acc2 = Avx.mm256_set1_epi64x(long.MinValue);
-                v256 acc3 = Avx.mm256_set1_epi64x(long.MinValue);
-
-                while (Hint.Likely(length >= 16))
+                v256 max0 = Avx.mm256_set1_epi64x(long.MinValue);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Max256(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Max256(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Max256(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 max1 = Avx.mm256_set1_epi64x(long.MinValue);
+                    v256 max2 = Avx.mm256_set1_epi64x(long.MinValue);
+                    v256 max3 = Avx.mm256_set1_epi64x(long.MinValue);
 
-                    length -= 16;
+                    do
+                    {
+                        max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max1 = Max256(max1, Avx.mm256_loadu_si256(ptr_v256++));
+                        max2 = Max256(max2, Avx.mm256_loadu_si256(ptr_v256++));
+                        max3 = Max256(max3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    max0 = Max256(max0, max1);
+                    max2 = Max256(max2, max3);
+                    max0 = Max256(max0, max2);
                 }
-
-                acc0 = Max256(acc0, acc1);
-                acc2 = Max256(acc2, acc3);
-                acc0 = Max256(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Max256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            max0 = Max256(max0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 4;
                         }
                         else
@@ -1931,59 +1999,64 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Max128(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 max128 = Max128(Avx.mm256_castsi256_si128(max0), Avx2.mm256_extracti128_si256(max0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Max128(acc128, Sse2.loadu_si128(ptr_v256));
+                    max128 = Max128(max128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Max128(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Max128(max128, Sse2.shuffle_epi32(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.max(acc128.SLong0, *(long*)ptr_v256);
+                    return math.max(max128.SLong0, *(long*)ptr_v256);
                 }
                 else
                 {
-                    return acc128.SLong0;
+                    return max128.SLong0;
                 }
             }
             else if (Sse4_2.IsSse42Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi64x(long.MinValue);
-                v128 acc1 = Sse2.set1_epi64x(long.MinValue);
-                v128 acc2 = Sse2.set1_epi64x(long.MinValue);
-                v128 acc3 = Sse2.set1_epi64x(long.MinValue);
-
-                while (Hint.Likely(length >= 8))
+                v128 max0 = Sse2.set1_epi64x(long.MinValue);
+                
+                if (Hint.Likely(length >= 8))
                 {
-                    acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Max128(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Max128(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Max128(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 max1 = Sse2.set1_epi64x(long.MinValue);
+                    v128 max2 = Sse2.set1_epi64x(long.MinValue);
+                    v128 max3 = Sse2.set1_epi64x(long.MinValue);
 
-                    length -= 8;
+                    do
+                    {
+                        max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++));
+                        max1 = Max128(max1, Sse2.loadu_si128(ptr_v128++));
+                        max2 = Max128(max2, Sse2.loadu_si128(ptr_v128++));
+                        max3 = Max128(max3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 8;
+                    } 
+                    while (Hint.Likely(length >= 8));
+
+                    max0 = Max128(max0, max1);
+                    max2 = Max128(max2, max3);
+                    max0 = Max128(max0, max2);
                 }
-
-                acc0 = Max128(acc0, acc1);
-                acc2 = Max128(acc2, acc3);
-                acc0 = Max128(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++));
+                    max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++));
+                        max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            acc0 = Max128(acc0, Sse2.loadu_si128(ptr_v128++));
+                            max0 = Max128(max0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 2;
                         }
                         else
@@ -1998,15 +2071,15 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Max128(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Max128(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.max(acc0.SLong0, *(long*)ptr_v128);
+                    return math.max(max0.SLong0, *(long*)ptr_v128);
                 }
                 else
                 {
-                    return acc0.SLong0;
+                    return max0.SLong0;
                 }
             }
             else
@@ -2097,36 +2170,41 @@ Assert.IsNonNegative(length);
             if (Avx.IsAvxSupported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = new v256(float.NegativeInfinity);
-                v256 acc1 = new v256(float.NegativeInfinity);
-                v256 acc2 = new v256(float.NegativeInfinity);
-                v256 acc3 = new v256(float.NegativeInfinity);
-
-                while (Hint.Likely(length >= 32))
+                v256 max0 = new v256(float.NegativeInfinity);
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Avx.mm256_max_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
-                    acc1 = Avx.mm256_max_ps(acc1, Avx.mm256_loadu_ps(ptr_v256++));
-                    acc2 = Avx.mm256_max_ps(acc2, Avx.mm256_loadu_ps(ptr_v256++));
-                    acc3 = Avx.mm256_max_ps(acc3, Avx.mm256_loadu_ps(ptr_v256++));
+                    v256 max1 = new v256(float.NegativeInfinity);
+                    v256 max2 = new v256(float.NegativeInfinity);
+                    v256 max3 = new v256(float.NegativeInfinity);
 
-                    length -= 32;
+                    do
+                    {
+                        max0 = Avx.mm256_max_ps(max0, Avx.mm256_loadu_ps(ptr_v256++));
+                        max1 = Avx.mm256_max_ps(max1, Avx.mm256_loadu_ps(ptr_v256++));
+                        max2 = Avx.mm256_max_ps(max2, Avx.mm256_loadu_ps(ptr_v256++));
+                        max3 = Avx.mm256_max_ps(max3, Avx.mm256_loadu_ps(ptr_v256++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    max0 = Avx.mm256_max_ps(max0, max1);
+                    max2 = Avx.mm256_max_ps(max2, max3);
+                    max0 = Avx.mm256_max_ps(max0, max2);
                 }
-
-                acc0 = Avx.mm256_max_ps(acc0, acc1);
-                acc2 = Avx.mm256_max_ps(acc2, acc3);
-                acc0 = Avx.mm256_max_ps(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Avx.mm256_max_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                    max0 = Avx.mm256_max_ps(max0, Avx.mm256_loadu_ps(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Avx.mm256_max_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                        max0 = Avx.mm256_max_ps(max0, Avx.mm256_loadu_ps(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Avx.mm256_max_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                            max0 = Avx.mm256_max_ps(max0, Avx.mm256_loadu_ps(ptr_v256++));
                             length -= 3 * 8;
                         }
                         else
@@ -2141,68 +2219,73 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse.max_ps(Avx.mm256_castps256_ps128(acc0), Avx.mm256_extractf128_ps(acc0, 1));
+                v128 max128 = Sse.max_ps(Avx.mm256_castps256_ps128(max0), Avx.mm256_extractf128_ps(max0, 1));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse.max_ps(acc128, Sse.loadu_ps(ptr_v256));
+                    max128 = Sse.max_ps(max128, Sse.loadu_ps(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 4;
                 }
                 
-                acc128 = Sse.max_ps(acc128, Avx.permute_ps(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                max128 = Sse.max_ps(max128, Avx.permute_ps(max128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse.max_ps(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse.max_ps(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
 
                     length -= 2;
                 }
 
-                acc128 = Sse.max_ps(acc128, Avx.permute_ps(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse.max_ps(max128, Avx.permute_ps(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc128 = Sse.max_ss(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    max128 = Sse.max_ss(max128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                 }
 
-                return acc128.Float0;
+                return max128.Float0;
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = new v128(float.NegativeInfinity);
-                v128 acc1 = new v128(float.NegativeInfinity);
-                v128 acc2 = new v128(float.NegativeInfinity);
-                v128 acc3 = new v128(float.NegativeInfinity);
-
-                while (Hint.Likely(length >= 16))
+                v128 max0 = new v128(float.NegativeInfinity);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Sse.max_ps(acc0, Sse.loadu_ps(ptr_v128++));
-                    acc1 = Sse.max_ps(acc1, Sse.loadu_ps(ptr_v128++));
-                    acc2 = Sse.max_ps(acc2, Sse.loadu_ps(ptr_v128++));
-                    acc3 = Sse.max_ps(acc3, Sse.loadu_ps(ptr_v128++));
+                    v128 max1 = new v128(float.NegativeInfinity);
+                    v128 max2 = new v128(float.NegativeInfinity);
+                    v128 max3 = new v128(float.NegativeInfinity);
 
-                    length -= 16;
+                    do
+                    {
+                        max0 = Sse.max_ps(max0, Sse.loadu_ps(ptr_v128++));
+                        max1 = Sse.max_ps(max1, Sse.loadu_ps(ptr_v128++));
+                        max2 = Sse.max_ps(max2, Sse.loadu_ps(ptr_v128++));
+                        max3 = Sse.max_ps(max3, Sse.loadu_ps(ptr_v128++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    max0 = Sse.max_ps(max0, max1);
+                    max2 = Sse.max_ps(max2, max3);
+                    max0 = Sse.max_ps(max0, max2);
                 }
-
-                acc0 = Sse.max_ps(acc0, acc1);
-                acc2 = Sse.max_ps(acc2, acc3);
-                acc0 = Sse.max_ps(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Sse.max_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                    max0 = Sse.max_ps(max0, Sse.loadu_ps(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Sse.max_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                        max0 = Sse.max_ps(max0, Sse.loadu_ps(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Sse.max_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                            max0 = Sse.max_ps(max0, Sse.loadu_ps(ptr_v128++));
                             length -= 3 * 4;
                         }
                         else
@@ -2217,24 +2300,24 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Sse.max_ps(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Sse.max_ps(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse.max_ps(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Sse.max_ps(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
 
                     length -= 2;
                 }
 
-                acc0 = Sse.max_ps(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                max0 = Sse.max_ps(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc0 = Sse.max_ss(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    max0 = Sse.max_ss(max0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
                 }
 
-                return acc0.Float0;
+                return max0.Float0;
             }
             else
             {
@@ -2324,36 +2407,41 @@ Assert.IsNonNegative(length);
             if (Avx.IsAvxSupported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = new v256(double.NegativeInfinity);
-                v256 acc1 = new v256(double.NegativeInfinity);
-                v256 acc2 = new v256(double.NegativeInfinity);
-                v256 acc3 = new v256(double.NegativeInfinity);
-
-                while (Hint.Likely(length >= 16))
+                v256 max0 = new v256(double.NegativeInfinity);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Avx.mm256_max_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
-                    acc1 = Avx.mm256_max_pd(acc1, Avx.mm256_loadu_pd(ptr_v256++));
-                    acc2 = Avx.mm256_max_pd(acc2, Avx.mm256_loadu_pd(ptr_v256++));
-                    acc3 = Avx.mm256_max_pd(acc3, Avx.mm256_loadu_pd(ptr_v256++));
+                    v256 max1 = new v256(double.NegativeInfinity);
+                    v256 max2 = new v256(double.NegativeInfinity);
+                    v256 max3 = new v256(double.NegativeInfinity);
 
-                    length -= 16;
+                    do
+                    {
+                        max0 = Avx.mm256_max_pd(max0, Avx.mm256_loadu_pd(ptr_v256++));
+                        max1 = Avx.mm256_max_pd(max1, Avx.mm256_loadu_pd(ptr_v256++));
+                        max2 = Avx.mm256_max_pd(max2, Avx.mm256_loadu_pd(ptr_v256++));
+                        max3 = Avx.mm256_max_pd(max3, Avx.mm256_loadu_pd(ptr_v256++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    max0 = Avx.mm256_max_pd(max0, max1);
+                    max2 = Avx.mm256_max_pd(max2, max3);
+                    max0 = Avx.mm256_max_pd(max0, max2);
                 }
-
-                acc0 = Avx.mm256_max_pd(acc0, acc1);
-                acc2 = Avx.mm256_max_pd(acc2, acc3);
-                acc0 = Avx.mm256_max_pd(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Avx.mm256_max_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                    max0 = Avx.mm256_max_pd(max0, Avx.mm256_loadu_pd(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Avx.mm256_max_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                        max0 = Avx.mm256_max_pd(max0, Avx.mm256_loadu_pd(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Avx.mm256_max_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                            max0 = Avx.mm256_max_pd(max0, Avx.mm256_loadu_pd(ptr_v256++));
                             length -= 3 * 4;
                         }
                         else
@@ -2368,58 +2456,63 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse2.max_pd(Avx.mm256_castpd256_pd128(acc0), Avx.mm256_extractf128_pd(acc0, 1));
+                v128 max128 = Sse2.max_pd(Avx.mm256_castpd256_pd128(max0), Avx.mm256_extractf128_pd(max0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse2.max_pd(acc128, Sse.loadu_ps(ptr_v256));
+                    max128 = Sse2.max_pd(max128, Sse.loadu_ps(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 2;
                 }
 
-                acc128 = Sse2.max_pd(acc128, Avx.permute_pd(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                max128 = Sse2.max_pd(max128, Avx.permute_pd(max128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc128 = Sse2.max_sd(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    max128 = Sse2.max_sd(max128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                 }
 
-                return acc128.Double0;
+                return max128.Double0;
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = new v128(double.NegativeInfinity);
-                v128 acc1 = new v128(double.NegativeInfinity);
-                v128 acc2 = new v128(double.NegativeInfinity);
-                v128 acc3 = new v128(double.NegativeInfinity);
-
-                while (Hint.Likely(length >= 8))
+                v128 max0 = new v128(double.NegativeInfinity);
+                
+                if (Hint.Likely(length >= 8))
                 {
-                    acc0 = Sse2.max_pd(acc0, Sse.loadu_ps(ptr_v128++));
-                    acc1 = Sse2.max_pd(acc1, Sse.loadu_ps(ptr_v128++));
-                    acc2 = Sse2.max_pd(acc2, Sse.loadu_ps(ptr_v128++));
-                    acc3 = Sse2.max_pd(acc3, Sse.loadu_ps(ptr_v128++));
+                    v128 max1 = new v128(double.NegativeInfinity);
+                    v128 max2 = new v128(double.NegativeInfinity);
+                    v128 max3 = new v128(double.NegativeInfinity);
 
-                    length -= 8;
+                    do
+                    {
+                        max0 = Sse2.max_pd(max0, Sse.loadu_ps(ptr_v128++));
+                        max1 = Sse2.max_pd(max1, Sse.loadu_ps(ptr_v128++));
+                        max2 = Sse2.max_pd(max2, Sse.loadu_ps(ptr_v128++));
+                        max3 = Sse2.max_pd(max3, Sse.loadu_ps(ptr_v128++));
+
+                        length -= 8;
+                    } 
+                    while (Hint.Likely(length >= 8));
+
+                    max0 = Sse2.max_pd(max0, max1);
+                    max2 = Sse2.max_pd(max2, max3);
+                    max0 = Sse2.max_pd(max0, max2);
                 }
-
-                acc0 = Sse2.max_pd(acc0, acc1);
-                acc2 = Sse2.max_pd(acc2, acc3);
-                acc0 = Sse2.max_pd(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse2.max_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                    max0 = Sse2.max_pd(max0, Sse.loadu_ps(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        acc0 = Sse2.max_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                        max0 = Sse2.max_pd(max0, Sse.loadu_ps(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            acc0 = Sse2.max_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                            max0 = Sse2.max_pd(max0, Sse.loadu_ps(ptr_v128++));
                             length -= 3 * 2;
                         }
                         else
@@ -2434,14 +2527,14 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Sse2.max_pd(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                max0 = Sse2.max_pd(max0, Sse2.shuffle_epi32(max0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc0 = Sse2.max_sd(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    max0 = Sse2.max_sd(max0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
                 }
 
-                return acc0.Double0;
+                return max0.Double0;
             }
             else
             {

@@ -20,36 +20,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi8(byte.MaxValue);
-                v256 acc1 = Avx.mm256_set1_epi8(byte.MaxValue);
-                v256 acc2 = Avx.mm256_set1_epi8(byte.MaxValue);
-                v256 acc3 = Avx.mm256_set1_epi8(byte.MaxValue);
-
-                while (Hint.Likely(length >= 128))
+                v256 min0 = Avx.mm256_set1_epi8(byte.MaxValue);
+                
+                if (Hint.Likely(length >= 128))
                 {
-                    acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_min_epu8(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_min_epu8(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_min_epu8(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi8(byte.MaxValue);
+                    v256 min2 = Avx.mm256_set1_epi8(byte.MaxValue);
+                    v256 min3 = Avx.mm256_set1_epi8(byte.MaxValue);
 
-                    length -= 128;
+                    do
+                    {
+                        min0 = Avx2.mm256_min_epu8(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Avx2.mm256_min_epu8(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Avx2.mm256_min_epu8(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Avx2.mm256_min_epu8(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 128;
+                    } 
+                    while (Hint.Likely(length >= 128));
+
+                    min0 = Avx2.mm256_min_epu8(min0, min1);
+                    min2 = Avx2.mm256_min_epu8(min2, min3);
+                    min0 = Avx2.mm256_min_epu8(min0, min2);
                 }
-
-                acc0 = Avx2.mm256_min_epu8(acc0, acc1);
-                acc2 = Avx2.mm256_min_epu8(acc2, acc3);
-                acc0 = Avx2.mm256_min_epu8(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 32))
                 {
-                    acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Avx2.mm256_min_epu8(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 32))
                     {
-                        acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Avx2.mm256_min_epu8(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 32))
                         {
-                            acc0 = Avx2.mm256_min_epu8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Avx2.mm256_min_epu8(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 32;
                         }
                         else
@@ -64,88 +69,93 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse2.min_epu8(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Sse2.min_epu8(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc128 = Sse2.min_epu8(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Sse2.min_epu8(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 16;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse2.min_epu8(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse2.min_epu8(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse2.min_epu8(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse2.min_epu8(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 8;
                 }
 
-                acc128 = Sse2.min_epu8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse2.min_epu8(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse2.min_epu8(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    min128 = Sse2.min_epu8(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse2.min_epu8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse2.min_epu8(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse2.min_epu8(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
+                    min128 = Sse2.min_epu8(min128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
                     ptr_v256 = (v256*)((short*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse2.min_epu8(acc128, Sse2.bsrli_si128(acc128, 1 * sizeof(byte)));
+                min128 = Sse2.min_epu8(min128, Sse2.bsrli_si128(min128, 1 * sizeof(byte)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse2.min_epu8(acc128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).Byte0;
+                    return Sse2.min_epu8(min128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).Byte0;
                 }
                 else
                 {
-                    return acc128.Byte0;
+                    return min128.Byte0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
-                v128 acc1 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
-                v128 acc2 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
-                v128 acc3 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
-
-                while (Hint.Likely(length >= 64))
+                v128 min0 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Sse2.min_epu8(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Sse2.min_epu8(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Sse2.min_epu8(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
+                    v128 min2 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
+                    v128 min3 = Sse2.set1_epi8(unchecked((sbyte)byte.MaxValue));
 
-                    length -= 64;
+                    do
+                    {
+                        min0 = Sse2.min_epu8(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Sse2.min_epu8(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Sse2.min_epu8(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Sse2.min_epu8(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    min0 = Sse2.min_epu8(min0, min1);
+                    min2 = Sse2.min_epu8(min2, min3);
+                    min0 = Sse2.min_epu8(min0, min2);
                 }
-
-                acc0 = Sse2.min_epu8(acc0, acc1);
-                acc2 = Sse2.min_epu8(acc2, acc3);
-                acc0 = Sse2.min_epu8(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Sse2.min_epu8(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Sse2.min_epu8(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Sse2.min_epu8(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Sse2.min_epu8(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 16;
                         }
                         else
@@ -161,51 +171,51 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Sse2.min_epu8(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Sse2.min_epu8(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Sse2.min_epu8(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Sse2.min_epu8(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 8;
                 }
 
-                acc0 = Sse2.min_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Sse2.min_epu8(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Sse2.min_epu8(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    min0 = Sse2.min_epu8(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Sse2.min_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Sse2.min_epu8(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse2.min_epu8(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
+                    min0 = Sse2.min_epu8(min0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
                     ptr_v128 = (v128*)((short*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Sse2.min_epu8(acc0, Sse2.bsrli_si128(acc0, 1 * sizeof(byte)));
+                min0 = Sse2.min_epu8(min0, Sse2.bsrli_si128(min0, 1 * sizeof(byte)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Sse2.min_epu8(acc0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).Byte0;
+                        return Sse2.min_epu8(min0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).Byte0;
                     }
                     else
                     {
-                        return (byte)math.min((uint)acc0.Byte0, (uint)(*(byte*)ptr_v128));
+                        return Sse2.min_epu8(min0, Sse2.cvtsi32_si128(*(byte*)ptr_v128)).Byte0;
                     }
                 }
                 else
                 {
-                    return acc0.Byte0;
+                    return min0.Byte0;
                 }
             }
             else
@@ -316,36 +326,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
-                v256 acc1 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
-                v256 acc2 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
-                v256 acc3 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
-
-                while (Hint.Likely(length >= 64))
+                v256 min0 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_min_epu16(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_min_epu16(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_min_epu16(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
+                    v256 min2 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
+                    v256 min3 = Avx.mm256_set1_epi16(unchecked((short)ushort.MaxValue));
 
-                    length -= 64;
+                    do
+                    {
+                        min0 = Avx2.mm256_min_epu16(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Avx2.mm256_min_epu16(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Avx2.mm256_min_epu16(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Avx2.mm256_min_epu16(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    min0 = Avx2.mm256_min_epu16(min0, min1);
+                    min2 = Avx2.mm256_min_epu16(min2, min3);
+                    min0 = Avx2.mm256_min_epu16(min0, min2);
                 }
-
-                acc0 = Avx2.mm256_min_epu16(acc0, acc1);
-                acc2 = Avx2.mm256_min_epu16(acc2, acc3);
-                acc0 = Avx2.mm256_min_epu16(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Avx2.mm256_min_epu16(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Avx2.mm256_min_epu16(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Avx2.mm256_min_epu16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Avx2.mm256_min_epu16(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 16;
                         }
                         else
@@ -360,79 +375,84 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.min_epu16(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Sse4_1.min_epu16(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse4_1.min_epu16(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Sse4_1.min_epu16(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 8;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse4_1.min_epu16(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse4_1.min_epu16(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.min_epu16(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse4_1.min_epu16(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.min_epu16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse4_1.min_epu16(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.min_epu16(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    min128 = Sse4_1.min_epu16(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.min_epu16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse4_1.min_epu16(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse4_1.min_epu16(acc128, Sse2.insert_epi16(cmp, *(ushort*)ptr_v256, 0)).UShort0;
+                    return Sse4_1.min_epu16(min128, Sse2.insert_epi16(cmp, *(ushort*)ptr_v256, 0)).UShort0;
                 }
                 else
                 {
-                    return acc128.UShort0;
+                    return min128.UShort0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
-                v128 acc1 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
-                v128 acc2 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
-                v128 acc3 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
-
-                while (Hint.Likely(length >= 32))
+                v128 min0 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Min(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Min(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
+                    v128 min2 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
+                    v128 min3 = Sse2.set1_epi16(unchecked((short)ushort.MaxValue));
 
-                    length -= 32;
+                    do
+                    {
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Min(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Min(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Min(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    min0 = Min(min0, min1);
+                    min2 = Min(min2, min3);
+                    min0 = Min(min0, min2);
                 }
-
-                acc0 = Min(acc0, acc1);
-                acc2 = Min(acc2, acc3);
-                acc0 = Min(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 8;
                         }
                         else
@@ -448,42 +468,42 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Min(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Min(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    min0 = Min(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Min(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Min(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Sse4_1.min_epu16(acc0, Sse2.insert_epi16(cmp, *(ushort*)ptr_v128, 0)).UShort0;
+                        return Sse4_1.min_epu16(min0, Sse2.insert_epi16(cmp, *(ushort*)ptr_v128, 0)).UShort0;
                     }
                     else
                     {
-                        return (ushort)math.min((uint)acc0.UShort0, *(ushort*)ptr_v128);
+                        return (ushort)math.min((uint)min0.UShort0, *(ushort*)ptr_v128);
                     }
                 }
                 else
                 {
-                    return acc0.UShort0;
+                    return min0.UShort0;
                 }
             }
             else
@@ -596,36 +616,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
-                v256 acc1 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
-                v256 acc2 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
-                v256 acc3 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
-
-                while (Hint.Likely(length >= 32))
+                v256 min0 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_min_epu32(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_min_epu32(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_min_epu32(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
+                    v256 min2 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
+                    v256 min3 = Avx.mm256_set1_epi32(unchecked((int)uint.MaxValue));
 
-                    length -= 32;
+                    do
+                    {
+                        min0 = Avx2.mm256_min_epu32(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Avx2.mm256_min_epu32(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Avx2.mm256_min_epu32(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Avx2.mm256_min_epu32(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    min0 = Avx2.mm256_min_epu32(min0, min1);
+                    min2 = Avx2.mm256_min_epu32(min2, min3);
+                    min0 = Avx2.mm256_min_epu32(min0, min2);
                 }
-
-                acc0 = Avx2.mm256_min_epu32(acc0, acc1);
-                acc2 = Avx2.mm256_min_epu32(acc2, acc3);
-                acc0 = Avx2.mm256_min_epu32(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Avx2.mm256_min_epu32(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Avx2.mm256_min_epu32(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Avx2.mm256_min_epu32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Avx2.mm256_min_epu32(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 8;
                         }
                         else
@@ -640,68 +665,73 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.min_epu32(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Sse4_1.min_epu32(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.min_epu32(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Sse4_1.min_epu32(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.min_epu32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse4_1.min_epu32(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.min_epu32(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse4_1.min_epu32(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.min_epu32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse4_1.min_epu32(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse4_1.min_epu32(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).UInt0;
+                    return Sse4_1.min_epu32(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).UInt0;
                 }
                 else
                 {
-                    return acc128.UInt0;
+                    return min128.UInt0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
-                v128 acc1 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
-                v128 acc2 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
-                v128 acc3 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
-
-                while (Hint.Likely(length >= 16))
+                v128 min0 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Min(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Min(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
+                    v128 min2 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
+                    v128 min3 = Sse2.set1_epi32(unchecked((int)uint.MaxValue));
 
-                    length -= 16;
+                    do
+                    {
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Min(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Min(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Min(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    min0 = Min(min0, min1);
+                    min2 = Min(min2, min3);
+                    min0 = Min(min0, min2);
                 }
-
-                acc0 = Min(acc0, acc1);
-                acc2 = Min(acc2, acc3);
-                acc0 = Min(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 4;
                         }
                         else
@@ -717,25 +747,32 @@ Assert.IsNonNegative(length);
                 else { }
 
 
-                acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Min(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Min(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).UInt0;
+                    if (Sse4_1.IsSse41Supported)
+                    {
+                        return Min(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).UInt0;
+                    }
+                    else
+                    {
+                        return math.min(min0.UInt0, *(uint*)ptr_v128);
+                    }
                 }
                 else
                 {
-                    return acc0.UInt0;
+                    return min0.UInt0;
                 }
             }
             else
@@ -856,38 +893,43 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
-                v256 acc1 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
-                v256 acc2 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
-                v256 acc3 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
+                v256 min0 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
 
                 v256 mask = Avx.mm256_set1_epi64x(1L << 63);
-
-                while (Hint.Likely(length >= 16))
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    acc1 = Min256(acc1, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    acc2 = Min256(acc2, Avx.mm256_loadu_si256(ptr_v256++), mask);
-                    acc3 = Min256(acc3, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                    v256 min1 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
+                    v256 min2 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
+                    v256 min3 = Avx.mm256_set1_epi64x(unchecked((long)ulong.MaxValue));
 
-                    length -= 16;
+                    do
+                    {
+                        min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        min1 = Min256(min1, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        min2 = Min256(min2, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        min3 = Min256(min3, Avx.mm256_loadu_si256(ptr_v256++), mask);
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    min0 = Min256(min0, min1, mask);
+                    min2 = Min256(min2, min3, mask);
+                    min0 = Min256(min0, min2, mask);
                 }
-
-                acc0 = Min256(acc0, acc1, mask);
-                acc2 = Min256(acc2, acc3, mask);
-                acc0 = Min256(acc0, acc2, mask);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                    min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++), mask);
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                        min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++), mask);
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++), mask);
+                            min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++), mask);
                             length -= 3 * 4;
                         }
                         else
@@ -902,59 +944,64 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Min128(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1), Avx.mm256_castsi256_si128(mask));
+                v128 min128 = Min128(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1), Avx.mm256_castsi256_si128(mask));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Min128(acc128, Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask));
+                    min128 = Min128(min128, Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(mask));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.min(*(ulong*)ptr_v256, math.min(acc128.ULong0, acc128.ULong1));
+                    return math.min(*(ulong*)ptr_v256, math.min(min128.ULong0, min128.ULong1));
                 }
                 else
                 {
-                    return math.min(acc128.ULong0, acc128.ULong1);
+                    return math.min(min128.ULong0, min128.ULong1);
                 }
             }
             else if (Sse4_2.IsSse42Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
-                v128 acc1 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
-                v128 acc2 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
-                v128 acc3 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
+                v128 min0 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
 
                 v128 mask = Sse2.set1_epi64x(1L << 63);
-
-                while (Hint.Likely(length >= 8))
+                
+                if (Hint.Likely(length >= 8))
                 {
-                    acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
-                    acc1 = Min128(acc1, Sse2.loadu_si128(ptr_v128++), mask);
-                    acc2 = Min128(acc2, Sse2.loadu_si128(ptr_v128++), mask);
-                    acc3 = Min128(acc3, Sse2.loadu_si128(ptr_v128++), mask);
+                    v128 min1 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
+                    v128 min2 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
+                    v128 min3 = Sse2.set1_epi64x(unchecked((long)ulong.MaxValue));
 
-                    length -= 8;
+                    do
+                    {
+                        min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++), mask);
+                        min1 = Min128(min1, Sse2.loadu_si128(ptr_v128++), mask);
+                        min2 = Min128(min2, Sse2.loadu_si128(ptr_v128++), mask);
+                        min3 = Min128(min3, Sse2.loadu_si128(ptr_v128++), mask);
+
+                        length -= 8;
+                    } 
+                    while (Hint.Likely(length >= 8));
+
+                    min0 = Min128(min0, min1, mask);
+                    min2 = Min128(min2, min3, mask);
+                    min0 = Min128(min0, min2, mask);
                 }
-
-                acc0 = Min128(acc0, acc1, mask);
-                acc2 = Min128(acc2, acc3, mask);
-                acc0 = Min128(acc0, acc2, mask);
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
+                    min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++), mask);
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
+                        min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++), mask);
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++), mask);
+                            min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++), mask);
                             length -= 3 * 2;
                         }
                         else
@@ -971,11 +1018,11 @@ Assert.IsNonNegative(length);
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.min(*(ulong*)ptr_v128, math.min(acc0.ULong0, acc0.ULong1));
+                    return math.min(*(ulong*)ptr_v128, math.min(min0.ULong0, min0.ULong1));
                 }
                 else
                 {
-                    return math.min(acc0.ULong0, acc0.ULong1);
+                    return math.min(min0.ULong0, min0.ULong1);
                 }
             }
             else
@@ -1085,36 +1132,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
-                v256 acc1 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
-                v256 acc2 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
-                v256 acc3 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
-
-                while (Hint.Likely(length >= 128))
+                v256 min0 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
+                
+                if (Hint.Likely(length >= 128))
                 {
-                    acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_min_epi8(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_min_epi8(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_min_epi8(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
+                    v256 min2 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
+                    v256 min3 = Avx.mm256_set1_epi8((byte)sbyte.MaxValue);
 
-                    length -= 128;
+                    do
+                    {
+                        min0 = Avx2.mm256_min_epi8(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Avx2.mm256_min_epi8(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Avx2.mm256_min_epi8(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Avx2.mm256_min_epi8(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 128;
+                    } 
+                    while (Hint.Likely(length >= 128));
+
+                    min0 = Avx2.mm256_min_epi8(min0, min1);
+                    min2 = Avx2.mm256_min_epi8(min2, min3);
+                    min0 = Avx2.mm256_min_epi8(min0, min2);
                 }
-
-                acc0 = Avx2.mm256_min_epi8(acc0, acc1);
-                acc2 = Avx2.mm256_min_epi8(acc2, acc3);
-                acc0 = Avx2.mm256_min_epi8(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 32))
                 {
-                    acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Avx2.mm256_min_epi8(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 32))
                     {
-                        acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Avx2.mm256_min_epi8(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 32))
                         {
-                            acc0 = Avx2.mm256_min_epi8(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Avx2.mm256_min_epi8(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 32;
                         }
                         else
@@ -1129,88 +1181,93 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.min_epi8(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Sse4_1.min_epi8(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc128 = Sse4_1.min_epi8(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Sse4_1.min_epi8(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 16;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse4_1.min_epi8(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse4_1.min_epi8(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse4_1.min_epi8(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse4_1.min_epi8(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 8;
                 }
 
-                acc128 = Sse4_1.min_epi8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse4_1.min_epi8(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.min_epi8(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    min128 = Sse4_1.min_epi8(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.min_epi8(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse4_1.min_epi8(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.min_epi8(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
+                    min128 = Sse4_1.min_epi8(min128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0));
                     ptr_v256 = (v256*)((short*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.min_epi8(acc128, Sse2.bsrli_si128(acc128, 1 * sizeof(sbyte)));
+                min128 = Sse4_1.min_epi8(min128, Sse2.bsrli_si128(min128, 1 * sizeof(sbyte)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return (sbyte)math.min((int)acc128.SByte0, (int)(*(sbyte*)ptr_v256));
+                    return Sse4_1.min_epi8(min128, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v256, 0)).SByte0;
                 }
                 else
                 {
-                    return acc128.SByte0;
+                    return min128.SByte0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi8(sbyte.MaxValue);
-                v128 acc1 = Sse2.set1_epi8(sbyte.MaxValue);
-                v128 acc2 = Sse2.set1_epi8(sbyte.MaxValue);
-                v128 acc3 = Sse2.set1_epi8(sbyte.MaxValue);
-
-                while (Hint.Likely(length >= 64))
+                v128 min0 = Sse2.set1_epi8(sbyte.MaxValue);
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Min(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Min(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi8(sbyte.MaxValue);
+                    v128 min2 = Sse2.set1_epi8(sbyte.MaxValue);
+                    v128 min3 = Sse2.set1_epi8(sbyte.MaxValue);
 
-                    length -= 64;
+                    do
+                    {
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Min(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Min(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Min(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    min0 = Min(min0, min1);
+                    min2 = Min(min2, min3);
+                    min0 = Min(min0, min2);
                 }
-
-                acc0 = Min(acc0, acc1);
-                acc2 = Min(acc2, acc3);
-                acc0 = Min(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 16;
                         }
                         else
@@ -1226,51 +1283,51 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Min(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 8;
                 }
 
-                acc0 = Sse2.min_epu8(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    min0 = Min(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Min(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Min(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Min(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
+                    min0 = Min(min0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0));
                     ptr_v128 = (v128*)((short*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Min(acc0, Sse2.bsrli_si128(acc0, 1 * sizeof(sbyte)));
+                min0 = Min(min0, Sse2.bsrli_si128(min0, 1 * sizeof(sbyte)));
 
                 if (Hint.Likely(length != 0))
                 {
                     if (Sse4_1.IsSse41Supported)
                     {
-                        return Sse4_1.min_epi8(acc0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).SByte0;
+                        return Sse4_1.min_epi8(min0, Sse4_1.insert_epi8(cmp, *(byte*)ptr_v128, 0)).SByte0;
                     }
                     else
                     {
-                        return (sbyte)math.min((int)acc0.SByte0, (int)(*(sbyte*)ptr_v128));
+                        return (sbyte)math.min((int)min0.SByte0, (int)(*(sbyte*)ptr_v128));
                     }
                 }
                 else
                 {
-                    return acc0.SByte0;
+                    return min0.SByte0;
                 }
             }
             else
@@ -1361,36 +1418,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi16(short.MaxValue);
-                v256 acc1 = Avx.mm256_set1_epi16(short.MaxValue);
-                v256 acc2 = Avx.mm256_set1_epi16(short.MaxValue);
-                v256 acc3 = Avx.mm256_set1_epi16(short.MaxValue);
-
-                while (Hint.Likely(length >= 64))
+                v256 min0 = Avx.mm256_set1_epi16(short.MaxValue);
+                
+                if (Hint.Likely(length >= 64))
                 {
-                    acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_min_epi16(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_min_epi16(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_min_epi16(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi16(short.MaxValue);
+                    v256 min2 = Avx.mm256_set1_epi16(short.MaxValue);
+                    v256 min3 = Avx.mm256_set1_epi16(short.MaxValue);
 
-                    length -= 64;
+                    do
+                    {
+                        min0 = Avx2.mm256_min_epi16(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Avx2.mm256_min_epi16(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Avx2.mm256_min_epi16(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Avx2.mm256_min_epi16(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 64;
+                    } 
+                    while (Hint.Likely(length >= 64));
+
+                    min0 = Avx2.mm256_min_epi16(min0, min1);
+                    min2 = Avx2.mm256_min_epi16(min2, min3);
+                    min0 = Avx2.mm256_min_epi16(min0, min2);
                 }
-
-                acc0 = Avx2.mm256_min_epi16(acc0, acc1);
-                acc2 = Avx2.mm256_min_epi16(acc2, acc3);
-                acc0 = Avx2.mm256_min_epi16(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 16))
                 {
-                    acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Avx2.mm256_min_epi16(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 16))
                     {
-                        acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Avx2.mm256_min_epi16(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 16))
                         {
-                            acc0 = Avx2.mm256_min_epi16(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Avx2.mm256_min_epi16(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 16;
                         }
                         else
@@ -1405,79 +1467,84 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse2.min_epi16(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Sse2.min_epi16(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc128 = Sse2.min_epi16(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Sse2.min_epi16(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 8;
                 }
 
                 v128 cmp = default(v128);
-                acc128 = Sse2.min_epi16(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse2.min_epi16(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse2.min_epi16(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse2.min_epi16(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse2.min_epi16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse2.min_epi16(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse2.min_epi16(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    min128 = Sse2.min_epi16(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                     ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse2.min_epi16(acc128, Sse2.shufflelo_epi16(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse2.min_epi16(min128, Sse2.shufflelo_epi16(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse2.min_epi16(acc128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0)).SShort0;
+                    return Sse2.min_epi16(min128, Sse2.insert_epi16(cmp, *(short*)ptr_v256, 0)).SShort0;
                 }
                 else
                 {
-                    return acc128.SShort0;
+                    return min128.SShort0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi16(short.MaxValue);
-                v128 acc1 = Sse2.set1_epi16(short.MaxValue);
-                v128 acc2 = Sse2.set1_epi16(short.MaxValue);
-                v128 acc3 = Sse2.set1_epi16(short.MaxValue);
-
-                while (Hint.Likely(length >= 32))
+                v128 min0 = Sse2.set1_epi16(short.MaxValue);
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Sse2.min_epi16(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Sse2.min_epi16(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Sse2.min_epi16(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi16(short.MaxValue);
+                    v128 min2 = Sse2.set1_epi16(short.MaxValue);
+                    v128 min3 = Sse2.set1_epi16(short.MaxValue);
 
-                    length -= 32;
+                    do
+                    {
+                        min0 = Sse2.min_epi16(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Sse2.min_epi16(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Sse2.min_epi16(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Sse2.min_epi16(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    min0 = Sse2.min_epi16(min0, min1);
+                    min2 = Sse2.min_epi16(min2, min3);
+                    min0 = Sse2.min_epi16(min0, min2);
                 }
-
-                acc0 = Sse2.min_epi16(acc0, acc1);
-                acc2 = Sse2.min_epi16(acc2, acc3);
-                acc0 = Sse2.min_epi16(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Sse2.min_epi16(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Sse2.min_epi16(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Sse2.min_epi16(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Sse2.min_epi16(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 8;
                         }
                         else
@@ -1493,35 +1560,35 @@ Assert.IsNonNegative(length);
                 else { }
 
                 v128 cmp = default(v128);
-                acc0 = Sse2.min_epi16(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Sse2.min_epi16(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Sse2.min_epi16(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Sse2.min_epi16(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 4;
                 }
 
-                acc0 = Sse2.min_epi16(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Sse2.min_epi16(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse2.min_epi16(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    min0 = Sse2.min_epi16(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
 
                     ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Sse2.min_epi16(acc0, Sse2.shufflelo_epi16(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Sse2.min_epi16(min0, Sse2.shufflelo_epi16(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse2.min_epi16(acc0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0)).SShort0;
+                    return Sse2.min_epi16(min0, Sse2.insert_epi16(cmp, *(short*)ptr_v128, 0)).SShort0;
                 }
                 else
                 {
-                    return acc0.SShort0;
+                    return min0.SShort0;
                 }
             }
             else
@@ -1631,36 +1698,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi32(int.MaxValue);
-                v256 acc1 = Avx.mm256_set1_epi32(int.MaxValue);
-                v256 acc2 = Avx.mm256_set1_epi32(int.MaxValue);
-                v256 acc3 = Avx.mm256_set1_epi32(int.MaxValue);
-
-                while (Hint.Likely(length >= 32))
+                v256 min0 = Avx.mm256_set1_epi32(int.MaxValue);
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Avx2.mm256_min_epi32(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Avx2.mm256_min_epi32(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Avx2.mm256_min_epi32(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi32(int.MaxValue);
+                    v256 min2 = Avx.mm256_set1_epi32(int.MaxValue);
+                    v256 min3 = Avx.mm256_set1_epi32(int.MaxValue);
 
-                    length -= 32;
+                    do
+                    {
+                        min0 = Avx2.mm256_min_epi32(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Avx2.mm256_min_epi32(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Avx2.mm256_min_epi32(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Avx2.mm256_min_epi32(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    min0 = Avx2.mm256_min_epi32(min0, min1);
+                    min2 = Avx2.mm256_min_epi32(min2, min3);
+                    min0 = Avx2.mm256_min_epi32(min0, min2);
                 }
-
-                acc0 = Avx2.mm256_min_epi32(acc0, acc1);
-                acc2 = Avx2.mm256_min_epi32(acc2, acc3);
-                acc0 = Avx2.mm256_min_epi32(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Avx2.mm256_min_epi32(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Avx2.mm256_min_epi32(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Avx2.mm256_min_epi32(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Avx2.mm256_min_epi32(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 8;
                         }
                         else
@@ -1675,68 +1747,73 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse4_1.min_epi32(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Sse4_1.min_epi32(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse4_1.min_epi32(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Sse4_1.min_epi32(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 4;
                 }
 
-                acc128 = Sse4_1.min_epi32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse4_1.min_epi32(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse4_1.min_epi32(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse4_1.min_epi32(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse4_1.min_epi32(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse4_1.min_epi32(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Sse4_1.min_epi32(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).SInt0;
+                    return Sse4_1.min_epi32(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256)).SInt0;
                 }
                 else
                 {
-                    return acc128.SInt0;
+                    return min128.SInt0;
                 }
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi32(int.MaxValue);
-                v128 acc1 = Sse2.set1_epi32(int.MaxValue);
-                v128 acc2 = Sse2.set1_epi32(int.MaxValue);
-                v128 acc3 = Sse2.set1_epi32(int.MaxValue);
-
-                while (Hint.Likely(length >= 16))
+                v128 min0 = Sse2.set1_epi32(int.MaxValue);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Min(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Min(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Min(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi32(int.MaxValue);
+                    v128 min2 = Sse2.set1_epi32(int.MaxValue);
+                    v128 min3 = Sse2.set1_epi32(int.MaxValue);
 
-                    length -= 16;
+                    do
+                    {
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Min(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Min(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Min(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    min0 = Min(min0, min1);
+                    min2 = Min(min2, min3);
+                    min0 = Min(min0, min2);
                 }
-
-                acc0 = Min(acc0, acc1);
-                acc2 = Min(acc2, acc3);
-                acc0 = Min(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Min(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Min(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 4;
                         }
                         else
@@ -1751,25 +1828,32 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Min(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Min(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Min(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Min(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return Min(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).SInt0;
+                    if (Sse4_1.IsSse41Supported)
+                    {
+                        return Min(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128)).SInt0;
+                    }
+                    else
+                    {
+                        return math.min(min0.SInt0, *(int*)ptr_v128);
+                    }
                 }
                 else
                 {
-                    return acc0.SInt0;
+                    return min0.SInt0;
                 }
             }
             else
@@ -1868,36 +1952,41 @@ Assert.IsNonNegative(length);
             if (Avx2.IsAvx2Supported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = Avx.mm256_set1_epi64x(long.MaxValue);
-                v256 acc1 = Avx.mm256_set1_epi64x(long.MaxValue);
-                v256 acc2 = Avx.mm256_set1_epi64x(long.MaxValue);
-                v256 acc3 = Avx.mm256_set1_epi64x(long.MaxValue);
-
-                while (Hint.Likely(length >= 16))
+                v256 min0 = Avx.mm256_set1_epi64x(long.MaxValue);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc1 = Min256(acc1, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc2 = Min256(acc2, Avx.mm256_loadu_si256(ptr_v256++));
-                    acc3 = Min256(acc3, Avx.mm256_loadu_si256(ptr_v256++));
+                    v256 min1 = Avx.mm256_set1_epi64x(long.MaxValue);
+                    v256 min2 = Avx.mm256_set1_epi64x(long.MaxValue);
+                    v256 min3 = Avx.mm256_set1_epi64x(long.MaxValue);
 
-                    length -= 16;
+                    do
+                    {
+                        min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min1 = Min256(min1, Avx.mm256_loadu_si256(ptr_v256++));
+                        min2 = Min256(min2, Avx.mm256_loadu_si256(ptr_v256++));
+                        min3 = Min256(min3, Avx.mm256_loadu_si256(ptr_v256++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    min0 = Min256(min0, min1);
+                    min2 = Min256(min2, min3);
+                    min0 = Min256(min0, min2);
                 }
-
-                acc0 = Min256(acc0, acc1);
-                acc2 = Min256(acc2, acc3);
-                acc0 = Min256(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                    min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                        min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Min256(acc0, Avx.mm256_loadu_si256(ptr_v256++));
+                            min0 = Min256(min0, Avx.mm256_loadu_si256(ptr_v256++));
                             length -= 3 * 4;
                         }
                         else
@@ -1912,59 +2001,64 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Min128(Avx.mm256_castsi256_si128(acc0), Avx2.mm256_extracti128_si256(acc0, 1));
+                v128 min128 = Min128(Avx.mm256_castsi256_si128(min0), Avx2.mm256_extracti128_si256(min0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Min128(acc128, Sse2.loadu_si128(ptr_v256));
+                    min128 = Min128(min128, Sse2.loadu_si128(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Min128(acc128, Sse2.shuffle_epi32(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Min128(min128, Sse2.shuffle_epi32(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.min(acc128.SLong0, *(long*)ptr_v256);
+                    return math.min(min128.SLong0, *(long*)ptr_v256);
                 }
                 else
                 {
-                    return acc128.SLong0;
+                    return min128.SLong0;
                 }
             }
             else if (Sse4_2.IsSse42Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = Sse2.set1_epi64x(long.MaxValue);
-                v128 acc1 = Sse2.set1_epi64x(long.MaxValue);
-                v128 acc2 = Sse2.set1_epi64x(long.MaxValue);
-                v128 acc3 = Sse2.set1_epi64x(long.MaxValue);
-
-                while (Hint.Likely(length >= 8))
+                v128 min0 = Sse2.set1_epi64x(long.MaxValue);
+                
+                if (Hint.Likely(length >= 8))
                 {
-                    acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
-                    acc1 = Min128(acc1, Sse2.loadu_si128(ptr_v128++));
-                    acc2 = Min128(acc2, Sse2.loadu_si128(ptr_v128++));
-                    acc3 = Min128(acc3, Sse2.loadu_si128(ptr_v128++));
+                    v128 min1 = Sse2.set1_epi64x(long.MaxValue);
+                    v128 min2 = Sse2.set1_epi64x(long.MaxValue);
+                    v128 min3 = Sse2.set1_epi64x(long.MaxValue);
 
-                    length -= 8;
+                    do
+                    {
+                        min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++));
+                        min1 = Min128(min1, Sse2.loadu_si128(ptr_v128++));
+                        min2 = Min128(min2, Sse2.loadu_si128(ptr_v128++));
+                        min3 = Min128(min3, Sse2.loadu_si128(ptr_v128++));
+
+                        length -= 8;
+                    } 
+                    while (Hint.Likely(length >= 8));
+
+                    min0 = Min128(min0, min1);
+                    min2 = Min128(min2, min3);
+                    min0 = Min128(min0, min2);
                 }
-
-                acc0 = Min128(acc0, acc1);
-                acc2 = Min128(acc2, acc3);
-                acc0 = Min128(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
+                    min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
+                        min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            acc0 = Min128(acc0, Sse2.loadu_si128(ptr_v128++));
+                            min0 = Min128(min0, Sse2.loadu_si128(ptr_v128++));
                             length -= 3 * 2;
                         }
                         else
@@ -1979,15 +2073,15 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Min128(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Min128(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    return math.min(acc0.SLong0, *(long*)ptr_v128);
+                    return math.min(min0.SLong0, *(long*)ptr_v128);
                 }
                 else
                 {
-                    return acc0.SLong0;
+                    return min0.SLong0;
                 }
             }
             else
@@ -2076,36 +2170,41 @@ Assert.IsNonNegative(length);
             if (Avx.IsAvxSupported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = new v256(float.PositiveInfinity);
-                v256 acc1 = new v256(float.PositiveInfinity);
-                v256 acc2 = new v256(float.PositiveInfinity);
-                v256 acc3 = new v256(float.PositiveInfinity);
-
-                while (Hint.Likely(length >= 32))
+                v256 min0 = new v256(float.PositiveInfinity);
+                
+                if (Hint.Likely(length >= 32))
                 {
-                    acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
-                    acc1 = Avx.mm256_min_ps(acc1, Avx.mm256_loadu_ps(ptr_v256++));
-                    acc2 = Avx.mm256_min_ps(acc2, Avx.mm256_loadu_ps(ptr_v256++));
-                    acc3 = Avx.mm256_min_ps(acc3, Avx.mm256_loadu_ps(ptr_v256++));
+                    v256 min1 = new v256(float.PositiveInfinity);
+                    v256 min2 = new v256(float.PositiveInfinity);
+                    v256 min3 = new v256(float.PositiveInfinity);
 
-                    length -= 32;
+                    do
+                    {
+                        min0 = Avx.mm256_min_ps(min0, Avx.mm256_loadu_ps(ptr_v256++));
+                        min1 = Avx.mm256_min_ps(min1, Avx.mm256_loadu_ps(ptr_v256++));
+                        min2 = Avx.mm256_min_ps(min2, Avx.mm256_loadu_ps(ptr_v256++));
+                        min3 = Avx.mm256_min_ps(min3, Avx.mm256_loadu_ps(ptr_v256++));
+
+                        length -= 32;
+                    } 
+                    while (Hint.Likely(length >= 32));
+
+                    min0 = Avx.mm256_min_ps(min0, min1);
+                    min2 = Avx.mm256_min_ps(min2, min3);
+                    min0 = Avx.mm256_min_ps(min0, min2);
                 }
-
-                acc0 = Avx.mm256_min_ps(acc0, acc1);
-                acc2 = Avx.mm256_min_ps(acc2, acc3);
-                acc0 = Avx.mm256_min_ps(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 8))
                 {
-                    acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                    min0 = Avx.mm256_min_ps(min0, Avx.mm256_loadu_ps(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 8))
                     {
-                        acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                        min0 = Avx.mm256_min_ps(min0, Avx.mm256_loadu_ps(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 8))
                         {
-                            acc0 = Avx.mm256_min_ps(acc0, Avx.mm256_loadu_ps(ptr_v256++));
+                            min0 = Avx.mm256_min_ps(min0, Avx.mm256_loadu_ps(ptr_v256++));
                             length -= 3 * 8;
                         }
                         else
@@ -2120,68 +2219,73 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse.min_ps(Avx.mm256_castps256_ps128(acc0), Avx.mm256_extractf128_ps(acc0, 1));
+                v128 min128 = Sse.min_ps(Avx.mm256_castps256_ps128(min0), Avx.mm256_extractf128_ps(min0, 1));
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc128 = Sse.min_ps(acc128, Sse.loadu_ps(ptr_v256));
+                    min128 = Sse.min_ps(min128, Sse.loadu_ps(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 4;
                 }
 
-                acc128 = Sse.min_ps(acc128, Avx.permute_ps(acc128, Sse.SHUFFLE(0, 0, 3, 2)));
+                min128 = Sse.min_ps(min128, Avx.permute_ps(min128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse.min_ps(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse.min_ps(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
 
                     ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                     length -= 2;
                 }
 
-                acc128 = Sse.min_ps(acc128, Avx.permute_ps(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse.min_ps(min128, Avx.permute_ps(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc128 = Sse.min_ss(acc128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                    min128 = Sse.min_ss(min128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
                 }
 
-                return acc128.Float0;
+                return min128.Float0;
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = new v128(float.PositiveInfinity);
-                v128 acc1 = new v128(float.PositiveInfinity);
-                v128 acc2 = new v128(float.PositiveInfinity);
-                v128 acc3 = new v128(float.PositiveInfinity);
-
-                while (Hint.Likely(length >= 16))
+                v128 min0 = new v128(float.PositiveInfinity);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
-                    acc1 = Sse.min_ps(acc1, Sse.loadu_ps(ptr_v128++));
-                    acc2 = Sse.min_ps(acc2, Sse.loadu_ps(ptr_v128++));
-                    acc3 = Sse.min_ps(acc3, Sse.loadu_ps(ptr_v128++));
+                    v128 min1 = new v128(float.PositiveInfinity);
+                    v128 min2 = new v128(float.PositiveInfinity);
+                    v128 min3 = new v128(float.PositiveInfinity);
 
-                    length -= 16;
+                    do
+                    {
+                        min0 = Sse.min_ps(min0, Sse.loadu_ps(ptr_v128++));
+                        min1 = Sse.min_ps(min1, Sse.loadu_ps(ptr_v128++));
+                        min2 = Sse.min_ps(min2, Sse.loadu_ps(ptr_v128++));
+                        min3 = Sse.min_ps(min3, Sse.loadu_ps(ptr_v128++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    min0 = Sse.min_ps(min0, min1);
+                    min2 = Sse.min_ps(min2, min3);
+                    min0 = Sse.min_ps(min0, min2);
                 }
-
-                acc0 = Sse.min_ps(acc0, acc1);
-                acc2 = Sse.min_ps(acc2, acc3);
-                acc0 = Sse.min_ps(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                    min0 = Sse.min_ps(min0, Sse.loadu_ps(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                        min0 = Sse.min_ps(min0, Sse.loadu_ps(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Sse.min_ps(acc0, Sse.loadu_ps(ptr_v128++));
+                            min0 = Sse.min_ps(min0, Sse.loadu_ps(ptr_v128++));
                             length -= 3 * 4;
                         }
                         else
@@ -2196,24 +2300,24 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Sse.min_ps(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Sse.min_ps(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse.min_ps(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Sse.min_ps(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
 
                     ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                     length -= 2;
                 }
 
-                acc0 = Sse.min_ps(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 0, 1)));
+                min0 = Sse.min_ps(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc0 = Sse.min_ss(acc0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                    min0 = Sse.min_ss(min0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
                 }
 
-                return acc0.Float0;
+                return min0.Float0;
             }
             else
             {
@@ -2303,36 +2407,41 @@ Assert.IsNonNegative(length);
             if (Avx.IsAvxSupported)
             {
                 v256* ptr_v256 = (v256*)ptr;
-                v256 acc0 = new v256(double.PositiveInfinity);
-                v256 acc1 = new v256(double.PositiveInfinity);
-                v256 acc2 = new v256(double.PositiveInfinity);
-                v256 acc3 = new v256(double.PositiveInfinity);
-
-                while (Hint.Likely(length >= 16))
+                v256 min0 = new v256(double.PositiveInfinity);
+                
+                if (Hint.Likely(length >= 16))
                 {
-                    acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
-                    acc1 = Avx.mm256_min_pd(acc1, Avx.mm256_loadu_pd(ptr_v256++));
-                    acc2 = Avx.mm256_min_pd(acc2, Avx.mm256_loadu_pd(ptr_v256++));
-                    acc3 = Avx.mm256_min_pd(acc3, Avx.mm256_loadu_pd(ptr_v256++));
+                    v256 min1 = new v256(double.PositiveInfinity);
+                    v256 min2 = new v256(double.PositiveInfinity);
+                    v256 min3 = new v256(double.PositiveInfinity);
 
-                    length -= 16;
+                    do
+                    {
+                        min0 = Avx.mm256_min_pd(min0, Avx.mm256_loadu_pd(ptr_v256++));
+                        min1 = Avx.mm256_min_pd(min1, Avx.mm256_loadu_pd(ptr_v256++));
+                        min2 = Avx.mm256_min_pd(min2, Avx.mm256_loadu_pd(ptr_v256++));
+                        min3 = Avx.mm256_min_pd(min3, Avx.mm256_loadu_pd(ptr_v256++));
+
+                        length -= 16;
+                    } 
+                    while (Hint.Likely(length >= 16));
+
+                    min0 = Avx.mm256_min_pd(min0, min1);
+                    min2 = Avx.mm256_min_pd(min2, min3);
+                    min0 = Avx.mm256_min_pd(min0, min2);
                 }
-
-                acc0 = Avx.mm256_min_pd(acc0, acc1);
-                acc2 = Avx.mm256_min_pd(acc2, acc3);
-                acc0 = Avx.mm256_min_pd(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 4))
                 {
-                    acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                    min0 = Avx.mm256_min_pd(min0, Avx.mm256_loadu_pd(ptr_v256++));
 
                     if (Hint.Likely((int)length >= 2 * 4))
                     {
-                        acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                        min0 = Avx.mm256_min_pd(min0, Avx.mm256_loadu_pd(ptr_v256++));
 
                         if (Hint.Likely((int)length >= 3 * 4))
                         {
-                            acc0 = Avx.mm256_min_pd(acc0, Avx.mm256_loadu_pd(ptr_v256++));
+                            min0 = Avx.mm256_min_pd(min0, Avx.mm256_loadu_pd(ptr_v256++));
                             length -= 3 * 4;
                         }
                         else
@@ -2347,58 +2456,63 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                v128 acc128 = Sse2.min_pd(Avx.mm256_castpd256_pd128(acc0), Avx.mm256_extractf128_pd(acc0, 1));
+                v128 min128 = Sse2.min_pd(Avx.mm256_castpd256_pd128(min0), Avx.mm256_extractf128_pd(min0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc128 = Sse2.min_pd(acc128, Sse.loadu_ps(ptr_v256));
+                    min128 = Sse2.min_pd(min128, Sse.loadu_ps(ptr_v256));
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                     length -= 2;
                 }
 
-                acc128 = Sse2.min_pd(acc128, Avx.permute_pd(acc128, Sse.SHUFFLE(0, 0, 0, 1)));
+                min128 = Sse2.min_pd(min128, Avx.permute_pd(min128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc128 = Sse2.min_sd(acc128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                    min128 = Sse2.min_sd(min128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
                 }
 
-                return acc128.Double0;
+                return min128.Double0;
             }
             else if (Sse2.IsSse2Supported)
             {
                 v128* ptr_v128 = (v128*)ptr;
-                v128 acc0 = new v128(double.PositiveInfinity);
-                v128 acc1 = new v128(double.PositiveInfinity);
-                v128 acc2 = new v128(double.PositiveInfinity);
-                v128 acc3 = new v128(double.PositiveInfinity);
-
-                while (Hint.Likely(length >= 8))
+                v128 min0 = new v128(double.PositiveInfinity);
+                
+                if (Hint.Likely(length >= 8))
                 {
-                    acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
-                    acc1 = Sse2.min_pd(acc1, Sse.loadu_ps(ptr_v128++));
-                    acc2 = Sse2.min_pd(acc2, Sse.loadu_ps(ptr_v128++));
-                    acc3 = Sse2.min_pd(acc3, Sse.loadu_ps(ptr_v128++));
+                    v128 min1 = new v128(double.PositiveInfinity);
+                    v128 min2 = new v128(double.PositiveInfinity);
+                    v128 min3 = new v128(double.PositiveInfinity);
 
-                    length -= 8;
+                    do
+                    {
+                        min0 = Sse2.min_pd(min0, Sse.loadu_ps(ptr_v128++));
+                        min1 = Sse2.min_pd(min1, Sse.loadu_ps(ptr_v128++));
+                        min2 = Sse2.min_pd(min2, Sse.loadu_ps(ptr_v128++));
+                        min3 = Sse2.min_pd(min3, Sse.loadu_ps(ptr_v128++));
+
+                        length -= 8;
+                    } 
+                    while (Hint.Likely(length >= 8));
+
+                    min0 = Sse2.min_pd(min0, min1);
+                    min2 = Sse2.min_pd(min2, min3);
+                    min0 = Sse2.min_pd(min0, min2);
                 }
-
-                acc0 = Sse2.min_pd(acc0, acc1);
-                acc2 = Sse2.min_pd(acc2, acc3);
-                acc0 = Sse2.min_pd(acc0, acc2);
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                    min0 = Sse2.min_pd(min0, Sse.loadu_ps(ptr_v128++));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                        min0 = Sse2.min_pd(min0, Sse.loadu_ps(ptr_v128++));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            acc0 = Sse2.min_pd(acc0, Sse.loadu_ps(ptr_v128++));
+                            min0 = Sse2.min_pd(min0, Sse.loadu_ps(ptr_v128++));
                             length -= 3 * 2;
                         }
                         else
@@ -2413,14 +2527,14 @@ Assert.IsNonNegative(length);
                 }
                 else { }
 
-                acc0 = Sse2.min_pd(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                min0 = Sse2.min_pd(min0, Sse2.shuffle_epi32(min0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                 if (Hint.Likely(length != 0))
                 {
-                    acc0 = Sse2.min_sd(acc0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                    min0 = Sse2.min_sd(min0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
                 }
 
-                return acc0.Double0;
+                return min0.Double0;
             }
             else
             {
