@@ -4,7 +4,7 @@ This package contains some of the most common array algorithms which are either 
 
 All included functions have a "SIMD_" prefix added to their name.
 
-The main way to access them is via extension methods to NativeArray\<T>, NativeSlice\<T> and NativeList\<T>, where T is a primitive C# numeric type although "CountBits" takes in any kind of array. You may need to use (for example) "(NativeArray\<Health>.Reinterpret\<byte>).SIMD_Max();", althouth there is a base version of each algorithm which takes in a pointer in the static "SIMDAlgorithms.Algorithms" class, aswell.
+The main way to access them is via extension methods to NativeArray\<T>, NativeSlice\<T> and NativeList\<T>, where T is a primitive C# numeric type although "CountBits" takes in any kind of array. You may need to use (for example) "(NativeArray\<Health>.Reinterpret\<byte>()).SIMD_Max();", althouth there is a base version of each algorithm which takes in a pointer in the static "SIMDAlgorithms.Algorithms" class, aswell.
 
 Note: 
 - [C Sharp Dev Tools](https://github.com/MrUnbelievable92/C-Sharp-Dev-Tools) (conditionally compiled runtime checks) is required. Unit tests for this library are included in this repository.
