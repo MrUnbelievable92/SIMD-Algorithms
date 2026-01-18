@@ -1,7 +1,8 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 
 namespace SIMDAlgorithms.Tests
 {
@@ -27,7 +28,7 @@ namespace SIMDAlgorithms.Tests
             return bits;
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Generic()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -43,11 +44,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(Scalar(test.GetUnsafePtr(), sizeof(int3) * test.Length), test.SIMD_CountBits());
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -63,11 +64,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(Scalar(test.GetUnsafePtr(), sizeof(byte) * test.Length), test.SIMD_CountBits());
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -83,11 +84,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(Scalar(test.GetUnsafePtr(), sizeof(ushort) * test.Length), test.SIMD_CountBits());
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -103,11 +104,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(Scalar(test.GetUnsafePtr(), sizeof(uint) * test.Length), test.SIMD_CountBits());
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -123,11 +124,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(Scalar(test.GetUnsafePtr(), sizeof(ulong) * test.Length), test.SIMD_CountBits());
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOT_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -152,11 +153,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void AND_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -181,11 +182,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.AND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void OR_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -210,11 +211,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.OR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XOR_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -239,11 +240,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NAND_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -268,11 +269,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NAND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOR_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -297,11 +298,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XNOR_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -326,11 +327,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XNOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ANDNOT_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -355,11 +356,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ANDNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ORNOT_1Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -384,12 +385,12 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ORNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOT_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -414,11 +415,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void AND_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -443,11 +444,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.AND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void OR_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -472,11 +473,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.OR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XOR_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -501,11 +502,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NAND_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -530,11 +531,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NAND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOR_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -559,11 +560,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XNOR_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -588,11 +589,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XNOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ANDNOT_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -617,11 +618,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ANDNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ORNOT_2Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -646,12 +647,12 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ORNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOT_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -676,11 +677,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void AND_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -705,11 +706,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.AND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void OR_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -734,11 +735,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.OR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XOR_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -763,11 +764,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NAND_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -792,11 +793,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NAND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOR_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -821,11 +822,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XNOR_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -850,11 +851,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XNOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ANDNOT_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -879,11 +880,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ANDNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ORNOT_4Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -908,12 +909,12 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ORNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOT_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -938,11 +939,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void AND_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -967,11 +968,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.AND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void OR_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -996,11 +997,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.OR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XOR_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -1025,11 +1026,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NAND_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -1054,11 +1055,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NAND, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void NOR_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -1083,11 +1084,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.NOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void XNOR_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -1112,11 +1113,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.XNOR, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ANDNOT_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -1141,11 +1142,11 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ANDNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ORNOT_8Bytes()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
@@ -1170,7 +1171,7 @@ namespace SIMDAlgorithms.Tests
 
                 Assert.AreEqual(scalar, test.SIMD_CountBits(BitwiseOperation.ORNOT, operand));
 
-                test.Dispose();
+                test.Dispose(default(JobHandle));
             }
         }
     }

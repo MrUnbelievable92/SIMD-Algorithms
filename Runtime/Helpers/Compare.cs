@@ -1,6 +1,8 @@
-﻿using Unity.Burst.Intrinsics;
+using Unity.Burst.Intrinsics;
+using MaxMath.Intrinsics;
 
 using static Unity.Burst.Intrinsics.X86;
+using MaxMath;
 
 namespace SIMDAlgorithms
 {
@@ -14,87 +16,37 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi8(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi8(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi8(1 << 7);
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi8(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi8(left, right);
+                    case Comparison.GreaterThan:            return Xse.mm256_cmpgt_epu8(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epu8(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   return Xse.mm256_cmpge_epu8(left, right);
+                    case Comparison.LessThanOrEqualTo:      return Xse.mm256_cmple_epu8(left, right);
 
-                        return Avx2.mm256_cmpgt_epi8(Avx2.mm256_xor_si256(left, MASK), Avx2.mm256_xor_si256(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi8(1 << 7);
-
-                        return Avx2.mm256_cmpgt_epi8(Avx2.mm256_xor_si256(right, MASK), Avx2.mm256_xor_si256(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi8(left, Avx2.mm256_max_epu8(left, right));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi8(left, Avx2.mm256_min_epu8(left, right));
-                    }
-
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo         </summary>
         public static v128 Bytes128(v128 left, v128 right, Comparison where)
         {
-            if (Sse2.IsSse2Supported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi8(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi8(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v128 MASK = Sse2.set1_epi8(unchecked((sbyte)(1 << 7)));
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi8(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi8(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epu8(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epu8(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   return Xse.cmpge_epu8(left, right);
+                    case Comparison.LessThanOrEqualTo:      return Xse.cmple_epu8(left, right);
 
-                        return Sse2.cmpgt_epi8(Sse2.xor_si128(left, MASK), Sse2.xor_si128(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v128 MASK = Sse2.set1_epi8(unchecked((sbyte)(1 << 7)));
-
-                        return Sse2.cmpgt_epi8(Sse2.xor_si128(right, MASK), Sse2.xor_si128(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi8(left, Sse2.max_epu8(left, right));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi8(left, Sse2.min_epu8(left, right));
-                    }
-
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool Bytes(byte left, byte right, Comparison where)
@@ -108,7 +60,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -121,123 +73,37 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi16(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi16(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi16(unchecked((short)(1 << 15)));
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi16(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi16(left, right);
+                    case Comparison.GreaterThan:            return Xse.mm256_cmpgt_epu16(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epu16(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   return Xse.mm256_cmpge_epu16(left, right);
+                    case Comparison.LessThanOrEqualTo:      return Xse.mm256_cmple_epu16(left, right);
 
-                        return Avx2.mm256_cmpgt_epi16(Avx2.mm256_xor_si256(left, MASK), Avx2.mm256_xor_si256(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi16(unchecked((short)(1 << 15)));
-
-                        return Avx2.mm256_cmpgt_epi16(Avx2.mm256_xor_si256(right, MASK), Avx2.mm256_xor_si256(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi16(left, Avx2.mm256_max_epu16(left, right));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi16(left, Avx2.mm256_min_epu16(left, right));
-                    }
-
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo         </summary>
         public static v128 UShorts128(v128 left, v128 right, Comparison where)
         {
-            if (Sse4_1.IsSse41Supported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi16(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v128 MASK = Sse2.set1_epi16(unchecked((short)(1 << 15)));
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi16(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi16(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epu16(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epu16(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   return Xse.cmpge_epu16(left, right);
+                    case Comparison.LessThanOrEqualTo:      return Xse.cmple_epu16(left, right);
 
-                        return Sse2.cmpgt_epi16(Sse2.xor_si128(left, MASK), Sse2.xor_si128(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v128 MASK = Sse2.set1_epi16(unchecked((short)(1 << 15)));
-
-                        return Sse2.cmpgt_epi16(Sse2.xor_si128(right, MASK), Sse2.xor_si128(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(left, Sse4_1.max_epu16(left, right));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(left, Sse4_1.min_epu16(left, right));
-                    }
-
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else if (Sse2.IsSse2Supported)
-            {
-                switch (where)
-                {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi16(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v128 MASK = Sse2.set1_epi16(unchecked((short)(1 << 15)));
-
-                        return Sse2.cmpgt_epi16(Sse2.xor_si128(left, MASK), Sse2.xor_si128(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v128 MASK = Sse2.set1_epi16(unchecked((short)(1 << 15)));
-
-                        return Sse2.cmpgt_epi16(Sse2.xor_si128(right, MASK), Sse2.xor_si128(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(Sse2.setzero_si128(), Sse2.subs_epu16(right, left));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(Sse2.setzero_si128(), Sse2.subs_epu16(left, right));
-                    }
-
-                    default: return default(v128);
-                }
-            }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool UShorts(ushort left, ushort right, Comparison where)
@@ -251,7 +117,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -264,123 +130,51 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi32(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi32(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi32(unchecked((int)(1 << 31)));
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi32(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi32(left, right);
+                    case Comparison.GreaterThan:            return Xse.mm256_cmpgt_epu32(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epu32(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   return Xse.mm256_cmpge_epu32(left, right);
+                    case Comparison.LessThanOrEqualTo:      return Xse.mm256_cmple_epu32(left, right);
 
-                        return Avx2.mm256_cmpgt_epi32(Avx2.mm256_xor_si256(left, MASK), Avx2.mm256_xor_si256(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi32(unchecked((int)(1 << 31)));
-
-                        return Avx2.mm256_cmpgt_epi32(Avx2.mm256_xor_si256(right, MASK), Avx2.mm256_xor_si256(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi32(left, Avx2.mm256_max_epu32(left, right));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi32(left, Avx2.mm256_min_epu32(left, right));
-                    }
-
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
-        /// <summary>       Inverted for: Sse4_1: Comparison.NotEqualTo; Sse2: Comparison.NotEqualTo, Comparison.GreaterThanOrEqualTo, Comparison.LessThanOrEqualTo         </summary>
+
+        /// <summary>       Inverted for: Sse4_1: Comparison.NotEqualTo; Xse: Comparison.NotEqualTo, Comparison.GreaterThanOrEqualTo, Comparison.LessThanOrEqualTo         </summary>
         public static v128 UInts128(v128 left, v128 right, Comparison where)
         {
             if (Sse4_1.IsSse41Supported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi32(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi32(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v128 MASK = Sse2.set1_epi32(unchecked((int)(1 << 31)));
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi32(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi32(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epu32(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epu32(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   return Xse.cmpge_epu32(left, right);
+                    case Comparison.LessThanOrEqualTo:      return Xse.cmple_epu32(left, right);
 
-                        return Sse2.cmpgt_epi32(Sse2.xor_si128(left, MASK), Sse2.xor_si128(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v128 MASK = Sse2.set1_epi32(unchecked((int)(1 << 31)));
-
-                        return Sse2.cmpgt_epi32(Sse2.xor_si128(right, MASK), Sse2.xor_si128(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi32(left, Sse4_1.max_epu32(left, right));
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Sse2.cmpeq_epi32(left, Sse4_1.min_epu32(left, right));
-                    }
-
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else if (Sse2.IsSse2Supported)
+            else if (BurstArchitecture.IsSIMDSupported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi32(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi32(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v128 MASK = Sse2.set1_epi32(unchecked((int)(1 << 31)));
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi32(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi32(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epu32(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epu32(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                        return Sse2.cmpgt_epi32(Sse2.xor_si128(left, MASK), Sse2.xor_si128(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v128 MASK = Sse2.set1_epi32(unchecked((int)(1 << 31)));
-
-                        return Sse2.cmpgt_epi32(Sse2.xor_si128(right, MASK), Sse2.xor_si128(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
-
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool UInts(uint left, uint right, Comparison where)
@@ -394,7 +188,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -407,103 +201,47 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi64(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi64(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi64x(unchecked((long)(1ul << 63)));
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi64(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi64(left, right);
+                    case Comparison.GreaterThan:            return Xse.mm256_cmpgt_epu64(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmpgt_epu64(right, left);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                        return Avx2.mm256_cmpgt_epi64(Avx2.mm256_xor_si256(left, MASK), Avx2.mm256_xor_si256(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v256 MASK = Avx.mm256_set1_epi64x(unchecked((long)(1ul << 63)));
-
-                        return Avx2.mm256_cmpgt_epi64(Avx2.mm256_xor_si256(right, MASK), Avx2.mm256_xor_si256(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
-
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo, Comparison.GreaterThanOrEqualTo, Comparison.LessThanOrEqualTo         </summary>
         public static v128 ULongs128(v128 left, v128 right, Comparison where)
         {
-            if (Sse4_2.IsSse42Supported)
+            if (BurstArchitecture.IsCMP64Supported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        v128 MASK = Sse2.set1_epi64x(unchecked((long)(1ul << 63)));
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi64(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi64(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epu64(left, right);
+                    case Comparison.LessThan:               return Xse.cmpgt_epu64(right, left);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                        return Sse4_2.cmpgt_epi64(Sse2.xor_si128(left, MASK), Sse2.xor_si128(right, MASK));
-                    }
-                    case Comparison.LessThan:
-                    {
-                        v128 MASK = Sse2.set1_epi64x(unchecked((long)(1ul << 63)));
-
-                        return Sse4_2.cmpgt_epi64(Sse2.xor_si128(right, MASK), Sse2.xor_si128(left, MASK));
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
-
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
             else if (Sse4_1.IsSse41Supported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
+                    case Comparison.EqualTo:        return Xse.cmpeq_epi64(left, right);
+                    case Comparison.NotEqualTo:     return Xse.cmpeq_epi64(left, right);
 
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool ULongs(ulong left, ulong right, Comparison where)
@@ -517,7 +255,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -530,79 +268,37 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi8(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi8(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi8(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi8(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpgt_epi8(right, left);
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Avx2.mm256_cmpgt_epi8(left, right);
-                    }
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi8(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi8(left, right);
+                    case Comparison.GreaterThan:            return Avx2.mm256_cmpgt_epi8(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epi8(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo         </summary>
         public static v128 SBytes128(v128 left, v128 right, Comparison where)
         {
-            if (Sse2.IsSse2Supported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi8(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi8(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Sse2.cmpgt_epi8(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Sse2.cmpgt_epi8(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        return Sse2.cmpgt_epi8(right, left);
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        return Sse2.cmpgt_epi8(left, right);
-                    }
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi8(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi8(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epi8(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epi8(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool SBytes(sbyte left, sbyte right, Comparison where)
@@ -616,9 +312,9 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
-        } 
+        }
         #endregion
 
         #region short
@@ -629,79 +325,37 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi16(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi16(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi16(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi16(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi16(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi16(left, right);
+                    case Comparison.GreaterThan:            return Avx2.mm256_cmpgt_epi16(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epi16(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo, Comparison.GreaterThanOrEqualTo, Comparison.LessThanOrEqualTo         </summary>
         public static v128 Shorts128(v128 left, v128 right, Comparison where)
         {
-            if (Sse2.IsSse2Supported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi16(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi16(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Sse2.cmpgt_epi16(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Sse2.cmpgt_epi16(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan; 
-                    }
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi16(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi16(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epi16(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epi16(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool Shorts(short left, short right, Comparison where)
@@ -715,7 +369,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -728,79 +382,37 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi32(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi32(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi32(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi32(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi32(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi32(left, right);
+                    case Comparison.GreaterThan:            return Avx2.mm256_cmpgt_epi32(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epi32(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo, Comparison.GreaterThanOrEqualTo, Comparison.LessThanOrEqualTo         </summary>
         public static v128 Ints128(v128 left, v128 right, Comparison where)
         {
-            if (Sse2.IsSse2Supported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse2.cmpeq_epi32(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse2.cmpeq_epi32(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Sse2.cmpgt_epi32(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Sse2.cmpgt_epi32(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi32(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi32(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epi32(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epi32(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool Ints(int left, int right, Comparison where)
@@ -814,7 +426,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -827,95 +439,47 @@ namespace SIMDAlgorithms
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Avx2.mm256_cmpeq_epi64(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Avx2.mm256_cmpeq_epi64(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi64(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Avx2.mm256_cmpgt_epi64(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
+                    case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi64(left, right);
+                    case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi64(left, right);
+                    case Comparison.GreaterThan:            return Xse.mm256_cmpgt_epi64(left, right);
+                    case Comparison.LessThan:               return Xse.mm256_cmplt_epi64(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v256);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
-        
+
         /// <summary>       Inverted for: Comparison.NotEqualTo, Comparison.GreaterThanOrEqualTo, Comparison.LessThanOrEqualTo         </summary>
         public static v128 Longs128(v128 left, v128 right, Comparison where)
         {
-            if (Sse4_2.IsSse42Supported)
+            if (BurstArchitecture.IsCMP64Supported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
-                    case Comparison.GreaterThan:
-                    {
-                        return Sse4_2.cmpgt_epi64(left, right);
-                    }
-                    case Comparison.LessThan:
-                    {
-                        return Sse4_2.cmpgt_epi64(right, left);
-                    }
-                    case Comparison.GreaterThanOrEqualTo:
-                    {
-                        goto case Comparison.LessThan;
-                    }
-                    case Comparison.LessThanOrEqualTo:
-                    {
-                        goto case Comparison.GreaterThan;
-                    }
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi64(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi64(left, right);
+                    case Comparison.GreaterThan:            return Xse.cmpgt_epi64(left, right);
+                    case Comparison.LessThan:               return Xse.cmplt_epi64(left, right);
+                    case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
+                    case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;
 
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
             else if (Sse4_1.IsSse41Supported)
             {
                 switch (where)
                 {
-                    case Comparison.EqualTo:              
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
-                    case Comparison.NotEqualTo:
-                    {
-                        return Sse4_1.cmpeq_epi64(left, right);
-                    }
+                    case Comparison.EqualTo:                return Xse.cmpeq_epi64(left, right);
+                    case Comparison.NotEqualTo:             return Xse.cmpeq_epi64(left, right);
 
-                    default: return default(v128);
+                    default: throw new IllegalInstructionException();
                 }
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool Longs(long left, long right, Comparison where)
@@ -929,7 +493,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -948,35 +512,29 @@ namespace SIMDAlgorithms
                     Comparison.GreaterThanOrEqualTo => Avx.mm256_cmp_ps(left, right, (int)Avx.CMP.GE_OQ),
                     Comparison.LessThanOrEqualTo    => Avx.mm256_cmp_ps(left, right, (int)Avx.CMP.LE_OQ),
 
-                    _ => default(v256),
+                    _ => throw new IllegalInstructionException()
                 };
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static v128 Floats128(v128 left, v128 right, Comparison where)
         {
-            if (Sse.IsSseSupported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 return where switch
                 {
-                    Comparison.EqualTo              => Sse.cmpeq_ps(left, right),
-                    Comparison.NotEqualTo           => Sse.cmpneq_ps(left, right),
-                    Comparison.GreaterThan          => Sse.cmpgt_ps(left, right),
-                    Comparison.LessThan             => Sse.cmplt_ps(left, right),
-                    Comparison.GreaterThanOrEqualTo => Sse.cmpge_ps(left, right),
-                    Comparison.LessThanOrEqualTo    => Sse.cmple_ps(left, right),
+                    Comparison.EqualTo              => Xse.cmpeq_ps(left, right),
+                    Comparison.NotEqualTo           => Xse.cmpneq_ps(left, right),
+                    Comparison.GreaterThan          => Xse.cmpgt_ps(left, right),
+                    Comparison.LessThan             => Xse.cmplt_ps(left, right),
+                    Comparison.GreaterThanOrEqualTo => Xse.cmpge_ps(left, right),
+                    Comparison.LessThanOrEqualTo    => Xse.cmple_ps(left, right),
 
-                    _ => default(v128),
+                    _ => throw new IllegalInstructionException()
                 };
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool Floats(float left, float right, Comparison where)
@@ -990,7 +548,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion
@@ -1009,35 +567,29 @@ namespace SIMDAlgorithms
                     Comparison.GreaterThanOrEqualTo => Avx.mm256_cmp_pd(left, right, (int)Avx.CMP.GE_OQ),
                     Comparison.LessThanOrEqualTo    => Avx.mm256_cmp_pd(left, right, (int)Avx.CMP.LE_OQ),
 
-                    _ => default(v256),
+                    _ => throw new IllegalInstructionException()
                 };
             }
-            else
-            {
-                return default(v256);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static v128 Doubles128(v128 left, v128 right, Comparison where)
         {
-            if (Sse2.IsSse2Supported)
+            if (BurstArchitecture.IsSIMDSupported)
             {
                 return where switch
                 {
-                    Comparison.EqualTo              => Sse2.cmpeq_pd(left, right),
-                    Comparison.NotEqualTo           => Sse2.cmpneq_pd(left, right),
-                    Comparison.GreaterThan          => Sse2.cmpgt_pd(left, right),
-                    Comparison.LessThan             => Sse2.cmplt_pd(left, right),
-                    Comparison.GreaterThanOrEqualTo => Sse2.cmpge_pd(left, right),
-                    Comparison.LessThanOrEqualTo    => Sse2.cmple_pd(left, right),
+                    Comparison.EqualTo              => Xse.cmpeq_pd(left, right),
+                    Comparison.NotEqualTo           => Xse.cmpneq_pd(left, right),
+                    Comparison.GreaterThan          => Xse.cmpgt_pd(left, right),
+                    Comparison.LessThan             => Xse.cmplt_pd(left, right),
+                    Comparison.GreaterThanOrEqualTo => Xse.cmpge_pd(left, right),
+                    Comparison.LessThanOrEqualTo    => Xse.cmple_pd(left, right),
 
-                    _ => default(v128),
+                    _ => throw new IllegalInstructionException()
                 };
             }
-            else
-            {
-                return default(v128);
-            }
+            else throw new IllegalInstructionException();
         }
 
         public static bool Doubles(double left, double right, Comparison where)
@@ -1051,7 +603,7 @@ namespace SIMDAlgorithms
                 Comparison.GreaterThanOrEqualTo => left >= right,
                 Comparison.LessThanOrEqualTo    => left <= right,
 
-                _ => default(bool),
+                _ => throw new IllegalInstructionException()
             };
         }
         #endregion

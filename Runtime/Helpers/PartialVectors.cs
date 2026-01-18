@@ -1,4 +1,5 @@
-﻿using Unity.Burst.CompilerServices;
+using MaxMath.Intrinsics;
+using Unity.Burst.CompilerServices;
 
 using static Unity.Burst.Intrinsics.X86;
 
@@ -10,13 +11,13 @@ namespace SIMDAlgorithms
         {
             switch (where)
             {
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value != 0;
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value != 0);
                 case Comparison.LessThanOrEqualTo:      return true;
                 case Comparison.GreaterThan:            return false;
-                
+
                 case Comparison.NotEqualTo:             return true;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0;
-                case Comparison.GreaterThanOrEqualTo:   return !Constant.IsConstantExpression(value) && value == 0;
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0);
+                case Comparison.GreaterThanOrEqualTo:   return constexpr.IS_TRUE(value == 0);
 
                 default: return true;
             }
@@ -26,13 +27,13 @@ namespace SIMDAlgorithms
         {
             switch (where)
             {
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value != 0;
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value != 0);
                 case Comparison.LessThanOrEqualTo:      return true;
                 case Comparison.GreaterThan:            return false;
-                
+
                 case Comparison.NotEqualTo:             return true;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0;
-                case Comparison.GreaterThanOrEqualTo:   return !Constant.IsConstantExpression(value) && value == 0;
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0);
+                case Comparison.GreaterThanOrEqualTo:   return constexpr.IS_TRUE(value == 0);
 
                 default: return true;
             }
@@ -42,13 +43,13 @@ namespace SIMDAlgorithms
         {
             switch (where)
             {
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value != 0;
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value != 0);
                 case Comparison.LessThanOrEqualTo:      return true;
                 case Comparison.GreaterThan:            return false;
-                
+
                 case Comparison.NotEqualTo:             return true;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0;
-                case Comparison.GreaterThanOrEqualTo:   { if (Sse4_1.IsSse41Supported) return !Constant.IsConstantExpression(value) && value == 0; else return true; };
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0);
+                case Comparison.GreaterThanOrEqualTo:   { if (Sse4_1.IsSse41Supported) return constexpr.IS_TRUE(value == 0); else return true; };
 
                 default: return true;
             }
@@ -59,10 +60,10 @@ namespace SIMDAlgorithms
             switch (where)
             {
                 case Comparison.NotEqualTo:             return true;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0;
-                case Comparison.GreaterThan:            return !Constant.IsConstantExpression(value) && value < 0;
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0);
+                case Comparison.GreaterThan:            return constexpr.IS_TRUE(value < 0);
                 case Comparison.GreaterThanOrEqualTo:   return true;
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value > 0;
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value > 0);
                 case Comparison.LessThanOrEqualTo:      return true;
 
                 default: return true;
@@ -74,10 +75,10 @@ namespace SIMDAlgorithms
             switch (where)
             {
                 case Comparison.NotEqualTo:             return true;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0;
-                case Comparison.GreaterThan:            return !Constant.IsConstantExpression(value) && value < 0;
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0);
+                case Comparison.GreaterThan:            return constexpr.IS_TRUE(value < 0);
                 case Comparison.GreaterThanOrEqualTo:   return true;
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value > 0;
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value > 0);
                 case Comparison.LessThanOrEqualTo:      return true;
 
                 default: return true;
@@ -89,10 +90,10 @@ namespace SIMDAlgorithms
             switch (where)
             {
                 case Comparison.NotEqualTo:             return true;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0;
-                case Comparison.GreaterThan:            return !Constant.IsConstantExpression(value) && value < 0;
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0);
+                case Comparison.GreaterThan:            return constexpr.IS_TRUE(value < 0);
                 case Comparison.GreaterThanOrEqualTo:   return true;
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value > 0;
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value > 0);
                 case Comparison.LessThanOrEqualTo:      return true;
 
                 default: return true;
@@ -103,12 +104,12 @@ namespace SIMDAlgorithms
         {
             switch (where)
             {
-                case Comparison.NotEqualTo:             return !Constant.IsConstantExpression(value) && value != 0f;
-                case Comparison.EqualTo:                return !Constant.IsConstantExpression(value) && value == 0f;
-                case Comparison.GreaterThan:            return !Constant.IsConstantExpression(value) && value < 0f;
-                case Comparison.GreaterThanOrEqualTo:   return !Constant.IsConstantExpression(value) && value <= 0f;
-                case Comparison.LessThan:               return !Constant.IsConstantExpression(value) && value > 0f;
-                case Comparison.LessThanOrEqualTo:      return !Constant.IsConstantExpression(value) && value >= 0f;
+                case Comparison.NotEqualTo:             return constexpr.IS_TRUE(value != 0f);
+                case Comparison.EqualTo:                return constexpr.IS_TRUE(value == 0f);
+                case Comparison.GreaterThan:            return constexpr.IS_TRUE(value < 0f);
+                case Comparison.GreaterThanOrEqualTo:   return constexpr.IS_TRUE(value <= 0f);
+                case Comparison.LessThan:               return constexpr.IS_TRUE(value > 0f);
+                case Comparison.LessThanOrEqualTo:      return constexpr.IS_TRUE(value >= 0f);
 
                 default: return true;
             }

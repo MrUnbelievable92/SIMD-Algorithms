@@ -1,4 +1,4 @@
-﻿namespace SIMDAlgorithms
+namespace SIMDAlgorithms
 {
     public enum BitwiseOperation : byte
     {

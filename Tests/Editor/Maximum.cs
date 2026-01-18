@@ -5,13 +5,13 @@ namespace SIMDAlgorithms.Tests
 {
     public static class Maximum
     {
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 byte x = byte.MinValue;
 
@@ -25,13 +25,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextUInt(byte.MaxValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 ushort x = ushort.MinValue;
 
@@ -45,13 +45,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextUInt(ushort.MaxValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 uint x = uint.MinValue;
 
@@ -65,13 +65,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 ulong x = ulong.MinValue;
 
@@ -85,13 +85,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 sbyte x = sbyte.MinValue;
 
@@ -105,13 +105,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MaxValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 short x = short.MinValue;
 
@@ -125,13 +125,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MaxValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 int x = int.MinValue;
 
@@ -145,13 +145,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 long x = long.MinValue;
 
@@ -165,13 +165,13 @@ namespace SIMDAlgorithms.Tests
             () => (long)rng.NextInt() | ((long)rng.NextInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 float x = float.NegativeInfinity;
 
@@ -185,13 +185,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 double x = double.NegativeInfinity;
 

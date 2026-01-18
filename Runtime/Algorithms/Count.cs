@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Burst.Intrinsics;
 using Unity.Burst.CompilerServices;
+using MaxMath.Intrinsics;
 using DevTools;
 
 using static Unity.Burst.Intrinsics.X86;
@@ -30,7 +31,7 @@ for (int i = 0; i < length; i++)
 }
 #endif
 
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.Byte)
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.Byte)
             {
                 returnType = GetSafeRange.Count(length);
             }
@@ -44,10 +45,10 @@ for (int i = 0; i < length; i++)
                     {
                         ulong originalLength = (ulong)length;
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely((int)length >= 32 * 4))
                         {
@@ -85,53 +86,48 @@ for (int i = 0; i < length; i++)
                                 length -= 32;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1)); 
+                        v128 count128 = Xse.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count128 = Sse2.add_epi8(count128, Sse2.loadu_si128(ptr_v256));
+                            count128 = Xse.add_epi8(count128, Xse.loadu_si128(ptr_v256));
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                             length -= 16;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.add_epi8(count128, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                            count128 = Xse.add_epi8(count128, Xse.cvtsi64x_si128(*(long*)ptr_v256));
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
 
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.add_epi8(count128, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                            count128 = Xse.add_epi8(count128, Xse.cvtsi32_si128(*(int*)ptr_v256));
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
 
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi8(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.add_epi8(count128, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0));
+                            count128 = Xse.add_epi8(count128, Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v256, 0));
                             ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
 
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.bsrli_si128(count128, 1 * sizeof(byte)));
+                        count128 = Xse.add_epi8(count128, Xse.bsrli_si128(count128, 1 * sizeof(byte)));
 
                         byte countTotal = count128.Byte0;
 
@@ -139,8 +135,6 @@ for (int i = 0; i < length; i++)
                         {
                             countTotal += *(byte*)ptr_v256;
                         }
-                        else { }
-
 
                         if (value == true)
                         {
@@ -151,38 +145,38 @@ for (int i = 0; i < length; i++)
                             return (byte)(originalLength - countTotal);
                         }
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
                         ulong originalLength = (ulong)length;
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely((int)length >= 16 * 4))
                         {
-                            count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
-                            count1 = Sse2.add_epi8(count1, Sse2.loadu_si128(ptr_v128++));
-                            count2 = Sse2.add_epi8(count2, Sse2.loadu_si128(ptr_v128++));
-                            count3 = Sse2.add_epi8(count3, Sse2.loadu_si128(ptr_v128++));
-                        
+                            count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
+                            count1 = Xse.add_epi8(count1, Xse.loadu_si128(ptr_v128++));
+                            count2 = Xse.add_epi8(count2, Xse.loadu_si128(ptr_v128++));
+                            count3 = Xse.add_epi8(count3, Xse.loadu_si128(ptr_v128++));
+
                             length -= 16 * 4;
                         }
 
-                        count0 = Sse2.add_epi8(Sse2.add_epi8(count0, count1), Sse2.add_epi8(count2, count3)); 
+                        count0 = Xse.add_epi8(Xse.add_epi8(count0, count1), Xse.add_epi8(count2, count3));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
+                            count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
+                                count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
+                                    count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
 
                                     length -= 3 * 16;
                                 }
@@ -196,42 +190,38 @@ for (int i = 0; i < length; i++)
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.add_epi8(count0, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                            count0 = Xse.add_epi8(count0, Xse.cvtsi64x_si128(*(long*)ptr_v128));
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
 
                             length -= 8;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.add_epi8(count0, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                            count0 = Xse.add_epi8(count0, Xse.cvtsi32_si128(*(int*)ptr_v128));
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
 
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi8(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.add_epi8(count0, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v128, 0));
+                            count0 = Xse.add_epi8(count0, Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v128, 0));
                             ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
 
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.bsrli_si128(count0, 1 * sizeof(byte)));
+                        count0 = Xse.add_epi8(count0, Xse.bsrli_si128(count0, 1 * sizeof(byte)));
 
                         byte countTotal = count0.Byte0;
 
@@ -239,8 +229,6 @@ for (int i = 0; i < length; i++)
                         {
                             countTotal += *(byte*)ptr_v128;
                         }
-                        else { }
-
 
                         if (value == true)
                         {
@@ -282,12 +270,12 @@ for (int i = 0; i < length; i++)
                     {
                         ulong originalLength = (ulong)length;
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 ZERO = default(v256);
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longs = default(v256);
+                        v256 ZERO= Avx.mm256_setzero_si256();
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longs= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 255 * 32 * 4))
                         {
@@ -308,7 +296,7 @@ for (int i = 0; i < length; i++)
                             v256 csum1 = Avx2.mm256_add_epi64(sad2, sad3);
                             v256 csum2 = Avx2.mm256_add_epi64(csum0, csum1);
                             longs = Avx2.mm256_add_epi64(longs, csum2);
-                            
+
                             count0 = Avx.mm256_setzero_si256();
                             count1 = Avx.mm256_setzero_si256();
                             count2 = Avx.mm256_setzero_si256();
@@ -318,26 +306,29 @@ for (int i = 0; i < length; i++)
                         }
 
 
-                        while (Hint.Likely((int)length >= 32 * 4))
+                        if (Hint.Likely((int)length >= 32 * 4))
                         {
-                            count0 = Avx2.mm256_add_epi8(count0, Avx.mm256_loadu_si256(ptr_v256++));
-                            count1 = Avx2.mm256_add_epi8(count1, Avx.mm256_loadu_si256(ptr_v256++));
-                            count2 = Avx2.mm256_add_epi8(count2, Avx.mm256_loadu_si256(ptr_v256++));
-                            count3 = Avx2.mm256_add_epi8(count3, Avx.mm256_loadu_si256(ptr_v256++));
-                        
-                            length -= 32 * 4;
-                        }
-                        
-                        v256 sad0_2 = Avx2.mm256_sad_epu8(count0, ZERO);
-                        v256 sad1_2 = Avx2.mm256_sad_epu8(count1, ZERO);
-                        v256 sad2_2 = Avx2.mm256_sad_epu8(count2, ZERO);
-                        v256 sad3_2 = Avx2.mm256_sad_epu8(count3, ZERO);
-                        
-                        v256 csum0_2 = Avx2.mm256_add_epi64(sad0_2, sad1_2);
-                        v256 csum1_2 = Avx2.mm256_add_epi64(sad2_2, sad3_2);
-                        v256 csum2_2 = Avx2.mm256_add_epi64(csum0_2, csum1_2);
-                        longs = Avx2.mm256_add_epi64(longs, csum2_2);
+                            do
+                            {
+                                count0 = Avx2.mm256_add_epi8(count0, Avx.mm256_loadu_si256(ptr_v256++));
+                                count1 = Avx2.mm256_add_epi8(count1, Avx.mm256_loadu_si256(ptr_v256++));
+                                count2 = Avx2.mm256_add_epi8(count2, Avx.mm256_loadu_si256(ptr_v256++));
+                                count3 = Avx2.mm256_add_epi8(count3, Avx.mm256_loadu_si256(ptr_v256++));
 
+                                length -= 32 * 4;
+                            }
+                            while (Hint.Likely((int)length >= 32 * 4));
+
+                            v256 sad0 = Avx2.mm256_sad_epu8(count0, ZERO);
+                            v256 sad1 = Avx2.mm256_sad_epu8(count1, ZERO);
+                            v256 sad2 = Avx2.mm256_sad_epu8(count2, ZERO);
+                            v256 sad3 = Avx2.mm256_sad_epu8(count3, ZERO);
+
+                            v256 csum0 = Avx2.mm256_add_epi64(sad0, sad1);
+                            v256 csum1 = Avx2.mm256_add_epi64(sad2, sad3);
+                            v256 csum2 = Avx2.mm256_add_epi64(csum0, csum1);
+                            longs = Avx2.mm256_add_epi64(longs, csum2);
+                        }
 
                         if (Hint.Likely((int)length >= 32))
                         {
@@ -364,57 +355,48 @@ for (int i = 0; i < length; i++)
 
                             longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_sad_epu8(count0, ZERO));
                         }
-                        else { }
-
 
                         v128 bytes;
-                        v128 longs128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
+                        v128 longs128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            bytes = Sse2.loadu_si128(ptr_v256);
+                            bytes = Xse.loadu_si128(ptr_v256);
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
 
                             length -= 16;
                         }
                         else
                         {
-                            bytes = default(v128);
+                            bytes = Xse.setzero_si128();
                         }
-
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            bytes = Sse2.add_epi8(bytes, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                            bytes = Xse.add_epi8(bytes, Xse.cvtsi64x_si128(*(long*)ptr_v256));
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
 
                             length -= 8;
                         }
-                        else { }
-
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            bytes = Sse2.add_epi8(bytes, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                            bytes = Xse.add_epi8(bytes, Xse.cvtsi32_si128(*(int*)ptr_v256));
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
 
                             length -= 4;
                         }
-                        else { }
-
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            bytes = Sse2.add_epi8(bytes, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0));
+                            bytes = Xse.add_epi8(bytes, Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v256, 0));
                             ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
 
                             length -= 2;
                         }
-                        else { }
 
-
-                        longs128 = Sse2.add_epi64(longs128, Sse2.sad_epu8(bytes, Avx.mm256_castsi256_si128(ZERO)));
-                        longs128 = Sse2.add_epi64(longs128, Sse2.shuffle_epi32(longs128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longs128 = Xse.add_epi64(longs128, Xse.sad_epu8(bytes, Avx.mm256_castsi256_si128(ZERO)));
+                        longs128 = Xse.add_epi64(longs128, Xse.shuffle_epi32(longs128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         ulong countTotal = longs128.ULong0;
 
@@ -422,8 +404,6 @@ for (int i = 0; i < length; i++)
                         {
                             countTotal += *(byte*)ptr_v256;
                         }
-                        else { }
-
 
                         if (value == true)
                         {
@@ -434,78 +414,80 @@ for (int i = 0; i < length; i++)
                             return originalLength - countTotal;
                         }
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
                         ulong originalLength = (ulong)length;
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 ZERO = default(v128);
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longs = default(v128);
+                        v128 ZERO = Xse.setzero_si128();
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longs = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 255 * 16 * 4))
                         {
                             for (int i = 0; i < 255; i++)
                             {
-                                count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
-                                count1 = Sse2.add_epi8(count1, Sse2.loadu_si128(ptr_v128++));
-                                count2 = Sse2.add_epi8(count2, Sse2.loadu_si128(ptr_v128++));
-                                count3 = Sse2.add_epi8(count3, Sse2.loadu_si128(ptr_v128++));
+                                count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
+                                count1 = Xse.add_epi8(count1, Xse.loadu_si128(ptr_v128++));
+                                count2 = Xse.add_epi8(count2, Xse.loadu_si128(ptr_v128++));
+                                count3 = Xse.add_epi8(count3, Xse.loadu_si128(ptr_v128++));
                             }
 
-                            v128 sad0 = Sse2.sad_epu8(count0, ZERO);
-                            v128 sad1 = Sse2.sad_epu8(count1, ZERO);
-                            v128 sad2 = Sse2.sad_epu8(count2, ZERO);
-                            v128 sad3 = Sse2.sad_epu8(count3, ZERO);
+                            v128 sad0 = Xse.sad_epu8(count0, ZERO);
+                            v128 sad1 = Xse.sad_epu8(count1, ZERO);
+                            v128 sad2 = Xse.sad_epu8(count2, ZERO);
+                            v128 sad3 = Xse.sad_epu8(count3, ZERO);
 
-                            v128 csum0 = Sse2.add_epi64(sad0, sad1);
-                            v128 csum1 = Sse2.add_epi64(sad2, sad3);
-                            v128 csum2 = Sse2.add_epi64(csum0, csum1);
-                            longs = Sse2.add_epi64(longs, csum2);
+                            v128 csum0 = Xse.add_epi64(sad0, sad1);
+                            v128 csum1 = Xse.add_epi64(sad2, sad3);
+                            v128 csum2 = Xse.add_epi64(csum0, csum1);
+                            longs = Xse.add_epi64(longs, csum2);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
 
                             length -= 255 * 16 * 4;
                         }
 
-
-                        while (Hint.Likely((int)length >= 16 * 4))
+                        if (Hint.Likely((int)length >= 16 * 4))
                         {
-                            count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
-                            count1 = Sse2.add_epi8(count1, Sse2.loadu_si128(ptr_v128++));
-                            count2 = Sse2.add_epi8(count2, Sse2.loadu_si128(ptr_v128++));
-                            count3 = Sse2.add_epi8(count3, Sse2.loadu_si128(ptr_v128++));
-                        
-                            length -= 16 * 4;
-                        }
-                        
-                        v128 sad0_2 = Sse2.sad_epu8(count0, ZERO);
-                        v128 sad1_2 = Sse2.sad_epu8(count1, ZERO);
-                        v128 sad2_2 = Sse2.sad_epu8(count2, ZERO);
-                        v128 sad3_2 = Sse2.sad_epu8(count3, ZERO);
-                        
-                        v128 csum0_2 = Sse2.add_epi64(sad0_2, sad1_2);
-                        v128 csum1_2 = Sse2.add_epi64(sad2_2, sad3_2);
-                        v128 csum2_2 = Sse2.add_epi64(csum0_2, csum1_2);
-                        longs = Sse2.add_epi64(longs, csum2_2);
+                            do
+                            {
+                                count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
+                                count1 = Xse.add_epi8(count1, Xse.loadu_si128(ptr_v128++));
+                                count2 = Xse.add_epi8(count2, Xse.loadu_si128(ptr_v128++));
+                                count3 = Xse.add_epi8(count3, Xse.loadu_si128(ptr_v128++));
 
+                                length -= 16 * 4;
+                            }
+                            while (Hint.Likely((int)length >= 16 * 4));
+
+                            v128 sad0_2 = Xse.sad_epu8(count0, ZERO);
+                            v128 sad1_2 = Xse.sad_epu8(count1, ZERO);
+                            v128 sad2_2 = Xse.sad_epu8(count2, ZERO);
+                            v128 sad3_2 = Xse.sad_epu8(count3, ZERO);
+
+                            v128 csum0_2 = Xse.add_epi64(sad0_2, sad1_2);
+                            v128 csum1_2 = Xse.add_epi64(sad2_2, sad3_2);
+                            v128 csum2_2 = Xse.add_epi64(csum0_2, csum1_2);
+                            longs = Xse.add_epi64(longs, csum2_2);
+                        }
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count0 = Sse2.loadu_si128(ptr_v128++);
+                            count0 = Xse.loadu_si128(ptr_v128++);
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
+                                count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    count0 = Sse2.add_epi8(count0, Sse2.loadu_si128(ptr_v128++));
+                                    count0 = Xse.add_epi8(count0, Xse.loadu_si128(ptr_v128++));
                                     length -= 3 * 16;
                                 }
                                 else
@@ -518,48 +500,41 @@ for (int i = 0; i < length; i++)
                                 length -= 16;
                             }
 
-                            longs = Sse2.add_epi64(longs, Sse2.sad_epu8(count0, ZERO));
+                            longs = Xse.add_epi64(longs, Xse.sad_epu8(count0, ZERO));
                         }
-                        else { }
-
 
                         v128 bytes;
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            bytes = Sse2.cvtsi64x_si128(*(long*)ptr_v128);
+                            bytes = Xse.cvtsi64x_si128(*(long*)ptr_v128);
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
 
                             length -= 8;
                         }
-                        else 
-                        { 
-                            bytes = default(v128);
+                        else
+                        {
+                            bytes = Xse.setzero_si128();
                         }
-
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            bytes = Sse2.add_epi8(bytes, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                            bytes = Xse.add_epi8(bytes, Xse.cvtsi32_si128(*(int*)ptr_v128));
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
 
                             length -= 4;
                         }
-                        else { }
-
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            bytes = Sse2.add_epi8(bytes, Sse2.insert_epi16(default(v128), *(ushort*)ptr_v128, 0));
+                            bytes = Xse.add_epi8(bytes, Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v128, 0));
                             ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
 
                             length -= 2;
                         }
-                        else { }
 
-
-                        longs = Sse2.add_epi64(longs, Sse2.sad_epu8(bytes, ZERO));
-                        longs = Sse2.add_epi64(longs, Sse2.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longs = Xse.add_epi64(longs, Xse.sad_epu8(bytes, ZERO));
+                        longs = Xse.add_epi64(longs, Xse.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         ulong countTotal = longs.ULong0;
 
@@ -567,8 +542,6 @@ for (int i = 0; i < length; i++)
                         {
                             countTotal += *(byte*)ptr_v128;
                         }
-                        else { }
-
 
                         if (value == true)
                         {
@@ -621,7 +594,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<bool> array, int index, int numEntries, bool value= true, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, returnType);
         }
@@ -643,7 +616,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<bool> array, int index, int numEntries, bool value= true, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, returnType);
         }
@@ -665,7 +638,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<bool> array, int index, int numEntries, bool value= true, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((bool*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, returnType);
         }
@@ -676,8 +649,8 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
         {
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
-            
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.Byte)
+
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.Byte)
             {
                 returnType = GetSafeRange.Count(length);
             }
@@ -696,11 +669,11 @@ Assert.IsNonNegative(length);
                         v256 broadcast = Avx.mm256_set1_epi8(value);
                         v256* ptr_v256 = (v256*)ptr;
 
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 4 * 32))
                         {
                             count0 = Avx2.mm256_sub_epi8(count0, Compare.Bytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
@@ -712,7 +685,7 @@ Assert.IsNonNegative(length);
                         }
 
                         count0 = Avx2.mm256_add_epi8(Avx2.mm256_add_epi8(count0, count1), Avx2.mm256_add_epi8(count2, count3));
-                        
+
                         if (Hint.Likely((int)length >= 32))
                         {
                             count0 = Avx2.mm256_sub_epi8(count0, Compare.Bytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
@@ -737,53 +710,48 @@ Assert.IsNonNegative(length);
                                 length -= 32;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 16;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        count128 = Xse.add_epi8(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.bsrli_si128(count128, 1 * sizeof(byte)));
+
+                        count128 = Xse.add_epi8(count128, Xse.bsrli_si128(count128, 1 * sizeof(byte)));
                         byte countTotal = count128.Byte0;
 
                         if (Hint.Likely(length != 0))
@@ -796,8 +764,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.Bytes(*(byte*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (byte)((ulong)originalLength - countTotal);
@@ -806,41 +774,41 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
-                        
+                        v128 ZERO = Xse.setzero_si128();
+
                         v128* ptr_v128 = (v128*)ptr;
 
-                        v128 broadcast = Sse2.set1_epi8((sbyte)value);
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 broadcast = Xse.set1_epi8((sbyte)value);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 16))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi8(count1, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi8(count2, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi8(count3, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count1 = Xse.sub_epi8(count1, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count2 = Xse.sub_epi8(count2, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count3 = Xse.sub_epi8(count3, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 4 * 16;
                         }
 
-                        count0 = Sse2.add_epi8(Sse2.add_epi8(count0, count1), Sse2.add_epi8(count2, count3));
+                        count0 = Xse.add_epi8(Xse.add_epi8(count0, count1), Xse.add_epi8(count2, count3));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 16;
                                 }
@@ -854,42 +822,38 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        count0 = Xse.add_epi8(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
 
                             ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.bsrli_si128(count0, 1 * sizeof(byte)));
+
+                        count0 = Xse.add_epi8(count0, Xse.bsrli_si128(count0, 1 * sizeof(byte)));
                         byte countTotal = count0.Byte0;
 
                         if (Hint.Likely(length != 0))
@@ -902,8 +866,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.Bytes(*(byte*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (byte)((ulong)originalLength - countTotal);
@@ -939,12 +903,12 @@ Assert.IsNonNegative(length);
                         v256 broadcast = Avx.mm256_set1_epi8(value);
                         v256* ptr_v256 = (v256*)ptr;
 
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
-                        
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 4 * 32 * byte.MaxValue))
                         {
                             uint loopCounter = 0;
@@ -957,11 +921,11 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi8(count3, Compare.Bytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < byte.MaxValue));
 
                             length -= 4 * 32 * byte.MaxValue;
-                            
+
                             v256 sum0 = Avx2.mm256_sad_epu8(ZERO, count0);
                             v256 sum1 = Avx2.mm256_sad_epu8(ZERO, count1);
                             v256 sum2 = Avx2.mm256_sad_epu8(ZERO, count2);
@@ -1003,7 +967,7 @@ Assert.IsNonNegative(length);
 
                             count0 = Avx.mm256_setzero_si256();
                         }
-                        
+
                         if (Hint.Likely((int)length >= 32))
                         {
                             count0 = Avx2.mm256_sub_epi8(count0, Compare.Bytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
@@ -1028,57 +992,52 @@ Assert.IsNonNegative(length);
                                 length -= 32;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 16;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+
+                        count128 = Xse.add_epi8(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.Bytes128(Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.Bytes128(Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.bsrli_si128(count128, 1 * sizeof(byte)));
-                        ulong countTotal = Sse4_1.extract_epi8(count128, 0);
-                        countTotal += (ulong)Sse2.cvtsi128_si64x(longCount128);
+
+                        count128 = Xse.add_epi8(count128, Xse.bsrli_si128(count128, 1 * sizeof(byte)));
+                        ulong countTotal = Xse.extract_epi8(count128, 0);
+                        countTotal += (ulong)Xse.cvtsi128_si64x(longCount128);
 
                         if (Hint.Likely(length != 0))
                         {
@@ -1090,8 +1049,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.Bytes(*(byte*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -1100,18 +1059,18 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
-                        
+                        v128 ZERO = Xse.setzero_si128();
+
                         v128* ptr_v128 = (v128*)ptr;
 
-                        v128 broadcast = Sse2.set1_epi8((sbyte)value);
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 broadcast = Xse.set1_epi8((sbyte)value);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 16 * byte.MaxValue))
                         {
@@ -1119,70 +1078,70 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi8(count1, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi8(count2, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi8(count3, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi8(count1, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi8(count2, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi8(count3, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < byte.MaxValue));
 
                             length -= 4 * 16 * byte.MaxValue;
-                            
-                            v128 sum0 = Sse2.sad_epu8(ZERO, count0);
-                            v128 sum1 = Sse2.sad_epu8(ZERO, count1);
-                            v128 sum2 = Sse2.sad_epu8(ZERO, count2);
-                            v128 sum3 = Sse2.sad_epu8(ZERO, count3);
 
-                            sum0 = Sse2.add_epi64(sum0, sum1);
-                            sum1 = Sse2.add_epi64(sum2, sum3);
+                            v128 sum0 = Xse.sad_epu8(ZERO, count0);
+                            v128 sum1 = Xse.sad_epu8(ZERO, count1);
+                            v128 sum2 = Xse.sad_epu8(ZERO, count2);
+                            v128 sum3 = Xse.sad_epu8(ZERO, count3);
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(sum0, sum1));
+                            sum0 = Xse.add_epi64(sum0, sum1);
+                            sum1 = Xse.add_epi64(sum2, sum3);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(sum0, sum1));
+
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 4 * 16))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi8(count1, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi8(count2, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi8(count3, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi8(count1, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi8(count2, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi8(count3, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 4 * 16;
                             }
                             while (Hint.Likely(length >= 4 * 16));
 
-                            v128 sum0 = Sse2.sad_epu8(ZERO, count0);
-                            v128 sum1 = Sse2.sad_epu8(ZERO, count1);
-                            v128 sum2 = Sse2.sad_epu8(ZERO, count2);
-                            v128 sum3 = Sse2.sad_epu8(ZERO, count3);
+                            v128 sum0 = Xse.sad_epu8(ZERO, count0);
+                            v128 sum1 = Xse.sad_epu8(ZERO, count1);
+                            v128 sum2 = Xse.sad_epu8(ZERO, count2);
+                            v128 sum3 = Xse.sad_epu8(ZERO, count3);
 
-                            sum0 = Sse2.add_epi64(sum0, sum1);
-                            sum1 = Sse2.add_epi64(sum2, sum3);
+                            sum0 = Xse.add_epi64(sum0, sum1);
+                            sum1 = Xse.add_epi64(sum2, sum3);
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(sum0, sum1));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(sum0, sum1));
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 16;
                                 }
@@ -1196,56 +1155,41 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
-                        longCount = Sse2.add_epi64(longCount, Sse2.bsrli_si128(longCount, 1 * sizeof(ulong)));
+
+                        count0 = Xse.add_epi8(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        longCount = Xse.add_epi64(longCount, Xse.bsrli_si128(longCount, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.Bytes128(Sse2.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.Bytes128(Xse.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
 
                             ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.bsrli_si128(count0, 1 * sizeof(byte)));
-                        ulong countTotal;
 
-                        if (Sse4_1.IsSse41Supported)
-                        {
-                            countTotal = Sse4_1.extract_epi8(count0, 0);
-                            countTotal += (ulong)Sse2.cvtsi128_si64x(longCount);
-                        }
-                        else
-                        {
-                            count0 = Sse2.and_si128(count0, Sse2.cvtsi32_si128(byte.MaxValue));
-                            longCount = Sse2.add_epi64(longCount, count0);
-                            countTotal = (ulong)Sse2.cvtsi128_si64x(longCount);
-                        }
+                        count0 = Xse.add_epi8(count0, Xse.bsrli_si128(count0, 1 * sizeof(byte)));
+                        ulong countTotal = Xse.extract_epi8(count0, 0);
+                        countTotal += (ulong)Xse.cvtsi128_si64x(longCount);
 
                         if (Hint.Likely(length != 0))
                         {
@@ -1257,8 +1201,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.Bytes(*(byte*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -1302,7 +1246,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<byte> array, int index, int numEntries, byte value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -1324,7 +1268,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<byte> array, int index, int numEntries, byte value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -1346,7 +1290,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<byte> array, int index, int numEntries, byte value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -1357,8 +1301,8 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
         {
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
-            
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt16)
+
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.UInt16)
             {
                 returnType = GetSafeRange.Count(length);
             }
@@ -1376,10 +1320,10 @@ Assert.IsNonNegative(length);
                     {
                         v256 broadcast = Avx.mm256_set1_epi16((short)value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4 * 16))
                         {
@@ -1419,42 +1363,38 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi16(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         ushort countTotal = count128.UShort0;
 
                         if (Hint.Likely(length != 0))
@@ -1467,8 +1407,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UShorts(*(ushort*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (ushort)((ulong)originalLength - countTotal);
@@ -1477,40 +1417,40 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 broadcast = Sse2.set1_epi16((short)value);
+                        v128 broadcast = Xse.set1_epi16((short)value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi16(count1, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi16(count2, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi16(count3, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count1 = Xse.sub_epi16(count1, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count2 = Xse.sub_epi16(count2, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count3 = Xse.sub_epi16(count3, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 4 * 8;
                         }
 
-                        count0 = Sse2.add_epi16(count0, count1);
-                        count2 = Sse2.add_epi16(count2, count3);
-                        count0 = Sse2.add_epi16(count0, count2);
+                        count0 = Xse.add_epi16(count0, count1);
+                        count2 = Xse.add_epi16(count2, count3);
+                        count0 = Xse.add_epi16(count0, count2);
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 8;
                                 }
@@ -1524,68 +1464,45 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         ushort countTotal = count0.UShort0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
-                            if (Sse4_1.IsSse41Supported)
+                            if (where == Comparison.NotEqualTo)
                             {
-                                if (where == Comparison.NotEqualTo)
-                                {
-                                    countTotal = (ushort)((ulong)originalLength - 1 - countTotal);
-                                }
-                            }
-                            else
-                            {  
-                                if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
-                                {
-                                    countTotal = (ushort)((ulong)originalLength - 1 - countTotal);
-                                }
+                                countTotal = (ushort)((ulong)originalLength - 1 - countTotal);
                             }
 
                             bool comparison = Compare.UShorts(*(ushort*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
-                            if (Sse4_1.IsSse41Supported)
+                        else
+                        {
+                            if (where == Comparison.NotEqualTo)
                             {
-                                if (where == Comparison.NotEqualTo)
-                                {
-                                    countTotal = (ushort)((ulong)originalLength - countTotal);
-                                }
-                            }
-                            else
-                            {  
-                                if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
-                                {
-                                    countTotal = (ushort)((ulong)originalLength - countTotal);
-                                }
+                                countTotal = (ushort)((ulong)originalLength - countTotal);
                             }
                         }
 
@@ -1610,14 +1527,14 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v256 ZERO = Avx.mm256_setzero_si256();
-                        
+
                         v256 broadcast = Avx.mm256_set1_epi16((short)value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 intCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 intCount= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4 * 16 * ushort.MaxValue))
                         {
@@ -1631,7 +1548,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.UShorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 16 * ushort.MaxValue;
@@ -1662,7 +1579,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.UShorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 length -= 4 * 16;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 16));
 
                             v256 intSum0 = Avx2.mm256_add_epi32(Avx2.mm256_unpacklo_epi16(count0, ZERO), Avx2.mm256_unpacklo_epi16(count1, ZERO));
@@ -1702,48 +1619,44 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
-                        v128 intCount128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(intCount), Avx2.mm256_extracti128_si256(intCount, 1));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        v128 intCount128 = Xse.add_epi32(Avx.mm256_castsi256_si128(intCount), Avx2.mm256_extracti128_si256(intCount, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        intCount128 = Sse2.add_epi32(intCount128, Sse2.bsrli_si128(intCount128, 2 * sizeof(uint)));
+
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        intCount128 = Xse.add_epi32(intCount128, Xse.bsrli_si128(intCount128, 2 * sizeof(uint)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        count128 = Sse4_1.cvtepu16_epi32(count128);
-                        intCount128 = Sse2.add_epi32(intCount128, Sse2.bsrli_si128(intCount128, 1 * sizeof(uint)));
-                        uint countTotal = Sse2.add_epi32(intCount128, count128).UInt0;
-                        
+                        count128 = Xse.add_epi16(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.cvtepu16_epi32(count128);
+                        intCount128 = Xse.add_epi32(intCount128, Xse.bsrli_si128(intCount128, 1 * sizeof(uint)));
+                        uint countTotal = Xse.add_epi32(intCount128, count128).UInt0;
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo)
@@ -1754,8 +1667,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UShorts(*(ushort*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (uint)((ulong)originalLength - countTotal);
@@ -1764,17 +1677,17 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse2.set1_epi16((short)value);
+                        v128 broadcast = Xse.set1_epi16((short)value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 intCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 intCount = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 8 * ushort.MaxValue))
                         {
@@ -1782,72 +1695,72 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 8 * ushort.MaxValue;
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            intCount = Sse2.add_epi32(intCount, intSum0);
+                            intCount = Xse.add_epi32(intCount, intSum0);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 4 * 8))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 4 * 8;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 8));
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            intCount = Sse2.add_epi32(intCount, intSum0);
+                            intCount = Xse.add_epi32(intCount, intSum0);
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 8;
                                 }
@@ -1861,32 +1774,29 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
-                        intCount = Sse2.add_epi32(intCount, Sse2.bsrli_si128(intCount, 2 * sizeof(uint)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        intCount = Xse.add_epi32(intCount, Xse.bsrli_si128(intCount, 2 * sizeof(uint)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Sse4_1.IsSse41Supported)
                         {
@@ -1894,47 +1804,27 @@ Assert.IsNonNegative(length);
                         }
                         else
                         {
-                            count0 = Sse2.and_si128(count0, Sse2.cvtsi32_si128(ushort.MaxValue));
+                            count0 = Xse.and_si128(count0, Xse.cvtsi32_si128(ushort.MaxValue));
                         }
 
-                        intCount = Sse2.add_epi32(intCount, Sse2.bsrli_si128(intCount, 1 * sizeof(uint)));
-                        uint countTotal = Sse2.add_epi32(intCount, count0).UInt0;
-                        
+                        intCount = Xse.add_epi32(intCount, Xse.bsrli_si128(intCount, 1 * sizeof(uint)));
+                        uint countTotal = Xse.add_epi32(intCount, count0).UInt0;
+
                         if (Hint.Likely(length != 0))
                         {
-                            if (Sse4_1.IsSse41Supported)
+                            if (where == Comparison.NotEqualTo)
                             {
-                                if (where == Comparison.NotEqualTo)
-                                {
-                                    countTotal = (uint)((ulong)originalLength - 1 - countTotal);
-                                }
-                            }
-                            else
-                            {  
-                                if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
-                                {
-                                    countTotal = (uint)((ulong)originalLength - 1 - countTotal);
-                                }
+                                countTotal = (uint)((ulong)originalLength - 1 - countTotal);
                             }
 
                             bool comparison = Compare.UShorts(*(ushort*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
-                            if (Sse4_1.IsSse41Supported)
+                        else
+                        {
+                            if (where == Comparison.NotEqualTo)
                             {
-                                if (where == Comparison.NotEqualTo)
-                                {
-                                    countTotal = (uint)((ulong)originalLength - countTotal);
-                                }
-                            }
-                            else
-                            {  
-                                if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
-                                {
-                                    countTotal = (uint)((ulong)originalLength - countTotal);
-                                }
+                                countTotal = (uint)((ulong)originalLength - countTotal);
                             }
                         }
 
@@ -1959,14 +1849,14 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v256 ZERO = Avx.mm256_setzero_si256();
-                        
+
                         v256 broadcast = Avx.mm256_set1_epi16((short)value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4 * 16 * ushort.MaxValue))
                         {
@@ -1980,7 +1870,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.UShorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 16 * ushort.MaxValue;
@@ -2012,7 +1902,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.UShorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 length -= 4 * 16;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 16));
 
                             v256 intSum0 = Avx2.mm256_add_epi32(Avx2.mm256_unpacklo_epi16(count0, ZERO), Avx2.mm256_unpacklo_epi16(count1, ZERO));
@@ -2053,47 +1943,43 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.UShorts128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        count128 = Sse4_1.cvtepu16_epi64(count128);
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
-                        ulong countTotal = Sse2.add_epi64(longCount128, count128).ULong0;
-                        
+                        count128 = Xse.add_epi16(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.cvtepu16_epi64(count128);
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+                        ulong countTotal = Xse.add_epi64(longCount128, count128).ULong0;
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo)
@@ -2104,8 +1990,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UShorts(*(ushort*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -2114,17 +2000,17 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse2.set1_epi16((short)value);
+                        v128 broadcast = Xse.set1_epi16((short)value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 8 * ushort.MaxValue))
                         {
@@ -2132,74 +2018,74 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 8 * ushort.MaxValue;
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            v128 longSum = Sse2.add_epi64(Sse2.unpacklo_epi32(intSum0, ZERO), Sse2.unpackhi_epi32(intSum0, ZERO));
-                            longCount = Sse2.add_epi64(longCount, longSum);
+                            v128 longSum = Xse.add_epi64(Xse.unpacklo_epi32(intSum0, ZERO), Xse.unpackhi_epi32(intSum0, ZERO));
+                            longCount = Xse.add_epi64(longCount, longSum);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 4 * 8))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 4 * 8;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 8));
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            v128 longSum = Sse2.add_epi64(Sse2.unpacklo_epi32(intSum0, ZERO), Sse2.unpackhi_epi32(intSum0, ZERO));
-                            longCount = Sse2.add_epi64(longCount, longSum);
+                            v128 longSum = Xse.add_epi64(Xse.unpacklo_epi32(intSum0, ZERO), Xse.unpackhi_epi32(intSum0, ZERO));
+                            longCount = Xse.add_epi64(longCount, longSum);
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 8;
                                 }
@@ -2213,78 +2099,55 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.UShorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.UShorts128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         if (Sse4_1.IsSse41Supported)
                         {
                             count0 = Sse4_1.cvtepu16_epi64(count0);
                         }
                         else
                         {
-                            count0 = Sse2.and_si128(count0, Sse2.cvtsi32_si128(ushort.MaxValue));
+                            count0 = Xse.and_si128(count0, Xse.cvtsi32_si128(ushort.MaxValue));
                         }
 
-                        longCount = Sse2.add_epi64(longCount, Sse2.bsrli_si128(longCount, 1 * sizeof(ulong)));
-                        ulong countTotal = Sse2.add_epi64(longCount, count0).ULong0;
-                        
+                        longCount = Xse.add_epi64(longCount, Xse.bsrli_si128(longCount, 1 * sizeof(ulong)));
+                        ulong countTotal = Xse.add_epi64(longCount, count0).ULong0;
+
                         if (Hint.Likely(length != 0))
                         {
-                            if (Sse4_1.IsSse41Supported)
+                            if (where == Comparison.NotEqualTo)
                             {
-                                if (where == Comparison.NotEqualTo)
-                                {
-                                    countTotal = (ulong)originalLength - 1 - countTotal;
-                                }
-                            }
-                            else
-                            {  
-                                if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
-                                {
-                                    countTotal = (ulong)originalLength - 1 - countTotal;
-                                }
+                                countTotal = (ulong)originalLength - 1 - countTotal;
                             }
 
                             bool comparison = Compare.UShorts(*(ushort*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
-                            if (Sse4_1.IsSse41Supported)
+                        else
+                        {
+                            if (where == Comparison.NotEqualTo)
                             {
-                                if (where == Comparison.NotEqualTo)
-                                {
-                                    countTotal = (ulong)originalLength - countTotal;
-                                }
-                            }
-                            else
-                            {  
-                                if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
-                                {
-                                    countTotal = (ulong)originalLength - countTotal;
-                                }
+                                countTotal = (ulong)originalLength - countTotal;
                             }
                         }
 
@@ -2325,7 +2188,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<ushort> array, int index, int numEntries, ushort value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -2347,7 +2210,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<ushort> array, int index, int numEntries, ushort value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -2369,7 +2232,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<ushort> array, int index, int numEntries, ushort value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -2381,13 +2244,13 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt32)
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.UInt32)
             {
                 returnType = GetSafeRange.Count(length);
             }
 
             long originalLength = length;
-            
+
             switch (returnType)
             {
                 case TypeCode.Byte:
@@ -2401,10 +2264,10 @@ Assert.IsNonNegative(length);
                     {
                         v256 broadcast = Avx.mm256_set1_epi32((int)value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 32))
                         {
@@ -2412,7 +2275,7 @@ Assert.IsNonNegative(length);
                             count1 = Avx2.mm256_sub_epi32(count1, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                             count2 = Avx2.mm256_sub_epi32(count2, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                             count3 = Avx2.mm256_sub_epi32(count3, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
-                            
+
                             length -= 32;
                         }
 
@@ -2442,33 +2305,30 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.UInts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.UInts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.UInts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         uint countTotal = count128.UInt0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo)
@@ -2479,8 +2339,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UInts(*(uint*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (uint)((ulong)originalLength - countTotal);
@@ -2489,39 +2349,39 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 broadcast = Sse2.set1_epi32((int)value);
+                        v128 broadcast = Xse.set1_epi32((int)value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 16))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi32(count1, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi32(count2, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi32(count3, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count1 = Xse.sub_epi32(count1, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count2 = Xse.sub_epi32(count2, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count3 = Xse.sub_epi32(count3, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 16;
                         }
 
-                        count0 = Sse2.add_epi32(Sse2.add_epi32(count0, count1), Sse2.add_epi32(count2, count3));
+                        count0 = Xse.add_epi32(Xse.add_epi32(count0, count1), Xse.add_epi32(count2, count3));
 
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 4;
                                 }
@@ -2535,22 +2395,20 @@ Assert.IsNonNegative(length);
                                 length -= 4;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         uint countTotal = count0.UInt0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (Sse4_1.IsSse41Supported)
@@ -2561,7 +2419,7 @@ Assert.IsNonNegative(length);
                                 }
                             }
                             else
-                            {  
+                            {
                                 if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                                 {
                                     countTotal = (uint)((ulong)originalLength - 1 - countTotal);
@@ -2571,8 +2429,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UInts(*(uint*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (Sse4_1.IsSse41Supported)
                             {
                                 if (where == Comparison.NotEqualTo)
@@ -2581,7 +2439,7 @@ Assert.IsNonNegative(length);
                                 }
                             }
                             else
-                            {  
+                            {
                                 if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                                 {
                                     countTotal = (uint)((ulong)originalLength - countTotal);
@@ -2609,15 +2467,15 @@ Assert.IsNonNegative(length);
                 {
                     if (Avx2.IsAvx2Supported)
                     {
-                        v256 ZERO = default(v256);
+                        v256 ZERO= Avx.mm256_setzero_si256();
 
                         v256 broadcast = Avx.mm256_set1_epi32((int)value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4L * 8 * uint.MaxValue))
                         {
@@ -2631,7 +2489,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi32(count3, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < uint.MaxValue));
 
                             v256 longSum0 = Avx2.mm256_add_epi64(Avx2.mm256_unpacklo_epi32(count0, ZERO), Avx2.mm256_unpacklo_epi32(count1, ZERO));
@@ -2657,7 +2515,7 @@ Assert.IsNonNegative(length);
                                 count1 = Avx2.mm256_sub_epi32(count1, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                                 count2 = Avx2.mm256_sub_epi32(count2, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                                 count3 = Avx2.mm256_sub_epi32(count3, Compare.UInts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
-                            } 
+                            }
                             while (Hint.Likely(length >= 32));
 
                             v256 longSum0 = Avx2.mm256_add_epi64(Avx2.mm256_unpacklo_epi32(count0, ZERO), Avx2.mm256_unpacklo_epi32(count1, ZERO));
@@ -2696,33 +2554,30 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        v128 count128 = Xse.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.UInts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.UInts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.UInts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         ulong countTotal = count128.UInt0 + longCount128.ULong0;
 
                         if (Hint.Likely(length != 0))
@@ -2735,8 +2590,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UInts(*(uint*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -2745,17 +2600,17 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = default(v128);
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse2.set1_epi32((int)value);
+                        v128 broadcast = Xse.set1_epi32((int)value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
                         if (Hint.Likely(length >= 4L * 4 * uint.MaxValue))
                         {
@@ -2763,64 +2618,64 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi32(count1, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi32(count2, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi32(count3, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi32(count1, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi32(count2, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi32(count3, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < uint.MaxValue));
 
                             length -= 4L * 4 * uint.MaxValue;
 
-                            v128 longSum0 = Sse2.add_epi64(Sse2.unpacklo_epi32(count0, ZERO), Sse2.unpacklo_epi32(count1, ZERO));
-                            v128 longSum1 = Sse2.add_epi64(Sse2.unpackhi_epi32(count0, ZERO), Sse2.unpackhi_epi32(count1, ZERO));
-                            v128 longSum2 = Sse2.add_epi64(Sse2.unpacklo_epi32(count2, ZERO), Sse2.unpacklo_epi32(count3, ZERO));
-                            v128 longSum3 = Sse2.add_epi64(Sse2.unpackhi_epi32(count2, ZERO), Sse2.unpackhi_epi32(count3, ZERO));
+                            v128 longSum0 = Xse.add_epi64(Xse.unpacklo_epi32(count0, ZERO), Xse.unpacklo_epi32(count1, ZERO));
+                            v128 longSum1 = Xse.add_epi64(Xse.unpackhi_epi32(count0, ZERO), Xse.unpackhi_epi32(count1, ZERO));
+                            v128 longSum2 = Xse.add_epi64(Xse.unpacklo_epi32(count2, ZERO), Xse.unpacklo_epi32(count3, ZERO));
+                            v128 longSum3 = Xse.add_epi64(Xse.unpackhi_epi32(count2, ZERO), Xse.unpackhi_epi32(count3, ZERO));
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(Sse2.add_epi64(longSum0, longSum1), Sse2.add_epi64(longSum2, longSum3)));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(Xse.add_epi64(longSum0, longSum1), Xse.add_epi64(longSum2, longSum3)));
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 16))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi32(count1, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi32(count2, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi32(count3, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi32(count1, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi32(count2, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi32(count3, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 16;
-                            } 
+                            }
                             while (Hint.Likely(length >= 16));
 
-                            v128 longSum0 = Sse2.add_epi64(Sse2.unpacklo_epi32(count0, ZERO), Sse2.unpacklo_epi32(count1, ZERO));
-                            v128 longSum1 = Sse2.add_epi64(Sse2.unpackhi_epi32(count0, ZERO), Sse2.unpackhi_epi32(count1, ZERO));
-                            v128 longSum2 = Sse2.add_epi64(Sse2.unpacklo_epi32(count2, ZERO), Sse2.unpacklo_epi32(count3, ZERO));
-                            v128 longSum3 = Sse2.add_epi64(Sse2.unpackhi_epi32(count2, ZERO), Sse2.unpackhi_epi32(count3, ZERO));
+                            v128 longSum0 = Xse.add_epi64(Xse.unpacklo_epi32(count0, ZERO), Xse.unpacklo_epi32(count1, ZERO));
+                            v128 longSum1 = Xse.add_epi64(Xse.unpackhi_epi32(count0, ZERO), Xse.unpackhi_epi32(count1, ZERO));
+                            v128 longSum2 = Xse.add_epi64(Xse.unpacklo_epi32(count2, ZERO), Xse.unpacklo_epi32(count3, ZERO));
+                            v128 longSum3 = Xse.add_epi64(Xse.unpackhi_epi32(count2, ZERO), Xse.unpackhi_epi32(count3, ZERO));
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(Sse2.add_epi64(longSum0, longSum1), Sse2.add_epi64(longSum2, longSum3)));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(Xse.add_epi64(longSum0, longSum1), Xse.add_epi64(longSum2, longSum3)));
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 4;
                                 }
@@ -2834,23 +2689,21 @@ Assert.IsNonNegative(length);
                                 length -= 4;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longCount = Sse2.bsrli_si128(longCount, 1 * sizeof(ulong));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longCount = Xse.bsrli_si128(longCount, 1 * sizeof(ulong));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.UInts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.UInts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         ulong countTotal = count0.UInt0 + longCount.ULong0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (Sse4_1.IsSse41Supported)
@@ -2861,7 +2714,7 @@ Assert.IsNonNegative(length);
                                 }
                             }
                             else
-                            {  
+                            {
                                 if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                                 {
                                     countTotal = (uint)((ulong)originalLength - 1 - countTotal);
@@ -2871,8 +2724,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.UInts(*(uint*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (Sse4_1.IsSse41Supported)
                             {
                                 if (where == Comparison.NotEqualTo)
@@ -2881,7 +2734,7 @@ Assert.IsNonNegative(length);
                                 }
                             }
                             else
-                            {  
+                            {
                                 if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                                 {
                                     countTotal = (uint)((ulong)originalLength - countTotal);
@@ -2926,7 +2779,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<uint> array, int index, int numEntries, uint value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -2948,7 +2801,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<uint> array, int index, int numEntries, uint value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -2970,7 +2823,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<uint> array, int index, int numEntries, uint value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -2987,10 +2840,10 @@ Assert.IsNonNegative(length);
             {
                 v256 broadcast = Avx.mm256_set1_epi64x((long)value);
                 v256* ptr_v256 = (v256*)ptr;
-                v256 count0 = default(v256);
-                v256 count1 = default(v256);
-                v256 count2 = default(v256);
-                v256 count3 = default(v256);
+                v256 count0= Avx.mm256_setzero_si256();
+                v256 count1= Avx.mm256_setzero_si256();
+                v256 count2= Avx.mm256_setzero_si256();
+                v256 count3= Avx.mm256_setzero_si256();
 
                 while (Hint.Likely(length >= 16))
                 {
@@ -3028,75 +2881,73 @@ Assert.IsNonNegative(length);
                         length -= 4;
                     }
                 }
-                else { }
 
-                v128 count128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                v128 count128 = Xse.add_epi64(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    count128 = Sse2.sub_epi64(count128, Compare.ULongs128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                    count128 = Xse.sub_epi64(count128, Compare.ULongs128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
-                else { }
 
-                count128 = Sse2.add_epi64(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                count128 = Xse.add_epi64(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
                 ulong countTotal = count128.ULong0;
 
                 if (Hint.Likely(length != 0))
                 {
                     if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                     {
-                        countTotal = (ulong)originalLength - 1 - countTotal; 
+                        countTotal = (ulong)originalLength - 1 - countTotal;
                     }
 
                     bool comparison = Compare.ULongs(*(ulong*)ptr_v256, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else 
+                else
                 {
                     if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                     {
-                        countTotal = (ulong)originalLength - countTotal; 
+                        countTotal = (ulong)originalLength - countTotal;
                     }
                 }
 
 
                 return countTotal;
             }
-            else if (Sse4_2.IsSse42Supported)
+            else if (BurstArchitecture.IsCMP64Supported)
             {
-                v128 broadcast = Sse2.set1_epi64x((long)value);
+                v128 broadcast = Xse.set1_epi64x((long)value);
                 v128* ptr_v128 = (v128*)ptr;
-                v128 count0 = default(v128);
-                v128 count1 = default(v128);
-                v128 count2 = default(v128);
-                v128 count3 = default(v128);
+                v128 count0 = Xse.setzero_si128();
+                v128 count1 = Xse.setzero_si128();
+                v128 count2 = Xse.setzero_si128();
+                v128 count3 = Xse.setzero_si128();
 
                 while (Hint.Likely(length >= 8))
                 {
-                    count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    count1 = Sse2.sub_epi64(count1, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    count2 = Sse2.sub_epi64(count2, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    count3 = Sse2.sub_epi64(count3, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    
+                    count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                    count1 = Xse.sub_epi64(count1, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                    count2 = Xse.sub_epi64(count2, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                    count3 = Xse.sub_epi64(count3, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+
                     length -= 8;
                 }
 
-                count0 = Sse2.add_epi64(Sse2.add_epi64(count0, count1), Sse2.add_epi64(count2, count3));
+                count0 = Xse.add_epi64(Xse.add_epi64(count0, count1), Xse.add_epi64(count2, count3));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                    count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                        count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 3 * 2;
                         }
@@ -3110,29 +2961,27 @@ Assert.IsNonNegative(length);
                         length -= 2;
                     }
                 }
-                else { }
 
-                count0 = Sse2.add_epi64(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                count0 = Xse.add_epi64(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
                 ulong countTotal = count0.ULong0;
 
                 if (Hint.Likely(length != 0))
                 {
                     if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                     {
-                        countTotal = (ulong)originalLength - 1 - countTotal; 
+                        countTotal = (ulong)originalLength - 1 - countTotal;
                     }
 
                     bool comparison = Compare.ULongs(*(ulong*)ptr_v128, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else 
+                else
                 {
                     if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                     {
-                        countTotal = (ulong)originalLength - countTotal; 
+                        countTotal = (ulong)originalLength - countTotal;
                     }
                 }
-
 
                 return countTotal;
             }
@@ -3140,36 +2989,36 @@ Assert.IsNonNegative(length);
             {
                 if (where == Comparison.EqualTo || where == Comparison.NotEqualTo)
                 {
-                    v128 broadcast = Sse2.set1_epi64x((long)value);
+                    v128 broadcast = Xse.set1_epi64x((long)value);
                     v128* ptr_v128 = (v128*)ptr;
-                    v128 count0 = default(v128);
-                    v128 count1 = default(v128);
-                    v128 count2 = default(v128);
-                    v128 count3 = default(v128);
+                    v128 count0 = Xse.setzero_si128();
+                    v128 count1 = Xse.setzero_si128();
+                    v128 count2 = Xse.setzero_si128();
+                    v128 count3 = Xse.setzero_si128();
 
                     while (Hint.Likely(length >= 8))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        count1 = Sse2.sub_epi64(count1, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        count2 = Sse2.sub_epi64(count2, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        count3 = Sse2.sub_epi64(count3, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        
+                        count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                        count1 = Xse.sub_epi64(count1, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                        count2 = Xse.sub_epi64(count2, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                        count3 = Xse.sub_epi64(count3, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+
                         length -= 8;
                     }
 
-                    count0 = Sse2.add_epi64(Sse2.add_epi64(count0, count1), Sse2.add_epi64(count2, count3));
+                    count0 = Xse.add_epi64(Xse.add_epi64(count0, count1), Xse.add_epi64(count2, count3));
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                        count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                         if (Hint.Likely((int)length >= 2 * 2))
                         {
-                            count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 3 * 2))
                             {
-                                count0 = Sse2.sub_epi64(count0, Compare.ULongs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi64(count0, Compare.ULongs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 3 * 2;
                             }
@@ -3183,29 +3032,27 @@ Assert.IsNonNegative(length);
                             length -= 2;
                         }
                     }
-                    else { }
 
-                    count0 = Sse2.add_epi64(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                    count0 = Xse.add_epi64(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
                     ulong countTotal = count0.ULong0;
 
                     if (Hint.Likely(length != 0))
                     {
                         if (where == Comparison.NotEqualTo)
                         {
-                            countTotal = (ulong)originalLength - 1 - countTotal; 
+                            countTotal = (ulong)originalLength - 1 - countTotal;
                         }
 
                         bool comparison = Compare.ULongs(*(ulong*)ptr_v128, value, where);
                         countTotal += *(byte*)&comparison;
                     }
-                    else 
+                    else
                     {
                         if (where == Comparison.NotEqualTo)
                         {
-                            countTotal = (ulong)originalLength - countTotal; 
+                            countTotal = (ulong)originalLength - countTotal;
                         }
                     }
-
 
                     return countTotal;
                 }
@@ -3253,7 +3100,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<ulong> array, int index, int numEntries, ulong value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -3275,7 +3122,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<ulong> array, int index, int numEntries, ulong value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -3297,7 +3144,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<ulong> array, int index, int numEntries, ulong value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -3308,8 +3155,8 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
         {
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
-            
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.Byte)
+
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.Byte)
             {
                 returnType = GetSafeRange.Count(length);
             }
@@ -3328,11 +3175,11 @@ Assert.IsNonNegative(length);
                         v256 broadcast = Avx.mm256_set1_epi8((byte)value);
                         v256* ptr_v256 = (v256*)ptr;
 
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 4 * 32))
                         {
                             count0 = Avx2.mm256_sub_epi8(count0, Compare.SBytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
@@ -3344,7 +3191,7 @@ Assert.IsNonNegative(length);
                         }
 
                         count0 = Avx2.mm256_add_epi8(Avx2.mm256_add_epi8(count0, count1), Avx2.mm256_add_epi8(count2, count3));
-                        
+
                         if (Hint.Likely((int)length >= 32))
                         {
                             count0 = Avx2.mm256_sub_epi8(count0, Compare.SBytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
@@ -3369,55 +3216,50 @@ Assert.IsNonNegative(length);
                                 length -= 32;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 16;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        count128 = Xse.add_epi8(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.bsrli_si128(count128, 1 * sizeof(sbyte)));
+
+                        count128 = Xse.add_epi8(count128, Xse.bsrli_si128(count128, 1 * sizeof(sbyte)));
                         byte countTotal = count128.Byte0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -3428,8 +3270,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.SBytes(*(sbyte*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (byte)((ulong)originalLength - countTotal);
@@ -3438,41 +3280,41 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
-                        
+                        v128 ZERO = Xse.setzero_si128();
+
                         v128* ptr_v128 = (v128*)ptr;
 
-                        v128 broadcast = Sse2.set1_epi8((sbyte)value);
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 broadcast = Xse.set1_epi8((sbyte)value);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 16))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi8(count1, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi8(count2, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi8(count3, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count1 = Xse.sub_epi8(count1, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count2 = Xse.sub_epi8(count2, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count3 = Xse.sub_epi8(count3, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 4 * 16;
                         }
 
-                        count0 = Sse2.add_epi8(Sse2.add_epi8(count0, count1), Sse2.add_epi8(count2, count3));
+                        count0 = Xse.add_epi8(Xse.add_epi8(count0, count1), Xse.add_epi8(count2, count3));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 16;
                                 }
@@ -3486,42 +3328,38 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        count0 = Xse.add_epi8(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
 
                             ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.bsrli_si128(count0, 1 * sizeof(sbyte)));
+
+                        count0 = Xse.add_epi8(count0, Xse.bsrli_si128(count0, 1 * sizeof(sbyte)));
                         byte countTotal = count0.Byte0;
 
                         if (Hint.Likely(length != 0))
@@ -3534,8 +3372,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.SBytes(*(sbyte*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (byte)((ulong)originalLength - countTotal);
@@ -3571,12 +3409,12 @@ Assert.IsNonNegative(length);
                         v256 broadcast = Avx.mm256_set1_epi8((byte)value);
                         v256* ptr_v256 = (v256*)ptr;
 
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
-                        
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 4 * 32 * byte.MaxValue))
                         {
                             uint loopCounter = 0;
@@ -3589,11 +3427,11 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi8(count3, Compare.SBytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < byte.MaxValue));
 
                             length -= 4 * 32 * byte.MaxValue;
-                            
+
                             v256 sum0 = Avx2.mm256_sad_epu8(ZERO, count0);
                             v256 sum1 = Avx2.mm256_sad_epu8(ZERO, count1);
                             v256 sum2 = Avx2.mm256_sad_epu8(ZERO, count2);
@@ -3635,7 +3473,7 @@ Assert.IsNonNegative(length);
 
                             count0 = Avx.mm256_setzero_si256();
                         }
-                        
+
                         if (Hint.Likely((int)length >= 32))
                         {
                             count0 = Avx2.mm256_sub_epi8(count0, Compare.SBytes256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
@@ -3660,57 +3498,52 @@ Assert.IsNonNegative(length);
                                 length -= 32;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi8(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 16;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
-                        count128 = Sse2.add_epi8(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        count128 = Xse.add_epi8(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+
+                        count128 = Xse.add_epi8(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi8(count128, Compare.SBytes128(Sse2.insert_epi16(default(v128), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi8(count128, Compare.SBytes128(Xse.insert_epi16(Xse.setzero_si128(), *(ushort*)ptr_v256, 0), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((ushort*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi8(count128, Sse2.bsrli_si128(count128, 1 * sizeof(sbyte)));
-                        ulong countTotal = Sse4_1.extract_epi8(count128, 0);
-                        countTotal += (ulong)Sse2.cvtsi128_si64x(longCount128);
+
+                        count128 = Xse.add_epi8(count128, Xse.bsrli_si128(count128, 1 * sizeof(sbyte)));
+                        ulong countTotal = Xse.extract_epi8(count128, 0);
+                        countTotal += (ulong)Xse.cvtsi128_si64x(longCount128);
 
                         if (Hint.Likely(length != 0))
                         {
@@ -3722,8 +3555,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.SBytes(*(sbyte*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -3732,18 +3565,18 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
-                        
+                        v128 ZERO = Xse.setzero_si128();
+
                         v128* ptr_v128 = (v128*)ptr;
 
-                        v128 broadcast = Sse2.set1_epi8((sbyte)value);
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 broadcast = Xse.set1_epi8((sbyte)value);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 16 * byte.MaxValue))
                         {
@@ -3751,70 +3584,70 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi8(count1, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi8(count2, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi8(count3, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi8(count1, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi8(count2, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi8(count3, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < byte.MaxValue));
 
                             length -= 4 * 16 * byte.MaxValue;
-                            
-                            v128 sum0 = Sse2.sad_epu8(ZERO, count0);
-                            v128 sum1 = Sse2.sad_epu8(ZERO, count1);
-                            v128 sum2 = Sse2.sad_epu8(ZERO, count2);
-                            v128 sum3 = Sse2.sad_epu8(ZERO, count3);
 
-                            sum0 = Sse2.add_epi64(sum0, sum1);
-                            sum1 = Sse2.add_epi64(sum2, sum3);
+                            v128 sum0 = Xse.sad_epu8(ZERO, count0);
+                            v128 sum1 = Xse.sad_epu8(ZERO, count1);
+                            v128 sum2 = Xse.sad_epu8(ZERO, count2);
+                            v128 sum3 = Xse.sad_epu8(ZERO, count3);
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(sum0, sum1));
+                            sum0 = Xse.add_epi64(sum0, sum1);
+                            sum1 = Xse.add_epi64(sum2, sum3);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(sum0, sum1));
+
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 4 * 16))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi8(count1, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi8(count2, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi8(count3, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi8(count1, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi8(count2, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi8(count3, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 4 * 16;
                             }
                             while (Hint.Likely(length >= 4 * 16));
 
-                            v128 sum0 = Sse2.sad_epu8(ZERO, count0);
-                            v128 sum1 = Sse2.sad_epu8(ZERO, count1);
-                            v128 sum2 = Sse2.sad_epu8(ZERO, count2);
-                            v128 sum3 = Sse2.sad_epu8(ZERO, count3);
+                            v128 sum0 = Xse.sad_epu8(ZERO, count0);
+                            v128 sum1 = Xse.sad_epu8(ZERO, count1);
+                            v128 sum2 = Xse.sad_epu8(ZERO, count2);
+                            v128 sum3 = Xse.sad_epu8(ZERO, count3);
 
-                            sum0 = Sse2.add_epi64(sum0, sum1);
-                            sum1 = Sse2.add_epi64(sum2, sum3);
+                            sum0 = Xse.add_epi64(sum0, sum1);
+                            sum1 = Xse.add_epi64(sum2, sum3);
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(sum0, sum1));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(sum0, sum1));
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 16;
                                 }
@@ -3828,56 +3661,41 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi8(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi8(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
-                        longCount = Sse2.add_epi64(longCount, Sse2.bsrli_si128(longCount, 1 * sizeof(ulong)));
+
+                        count0 = Xse.add_epi8(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        longCount = Xse.add_epi64(longCount, Xse.bsrli_si128(longCount, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi8(count0, Compare.SBytes128(Sse2.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
+                            count0 = Xse.sub_epi8(count0, Compare.SBytes128(Xse.insert_epi16(ZERO, *(ushort*)ptr_v128, 0), broadcast, where));
 
                             ptr_v128 = (v128*)((ushort*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
-                        
-                        count0 = Sse2.add_epi8(count0, Sse2.bsrli_si128(count0, 1 * sizeof(sbyte)));
-                        ulong countTotal;
 
-                        if (Sse4_1.IsSse41Supported)
-                        {
-                            countTotal = Sse4_1.extract_epi8(count0, 0);
-                            countTotal += (ulong)Sse2.cvtsi128_si64x(longCount);
-                        }
-                        else
-                        {
-                            count0 = Sse2.and_si128(count0, Sse2.cvtsi32_si128(byte.MaxValue));
-                            longCount = Sse2.add_epi64(longCount, count0);
-                            countTotal = (ulong)Sse2.cvtsi128_si64x(longCount);
-                        }
+                        count0 = Xse.add_epi8(count0, Xse.bsrli_si128(count0, 1 * sizeof(sbyte)));
+                        ulong countTotal = Xse.extract_epi8(count0, 0);
+                        countTotal += (ulong)Xse.cvtsi128_si64x(longCount);
 
                         if (Hint.Likely(length != 0))
                         {
@@ -3889,8 +3707,8 @@ Assert.IsNonNegative(length);
                             bool comparison = Compare.SBytes(*(sbyte*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else 
-                        { 
+                        else
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -3934,7 +3752,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<sbyte> array, int index, int numEntries, sbyte value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -3956,7 +3774,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<sbyte> array, int index, int numEntries, sbyte value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -3978,7 +3796,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<sbyte> array, int index, int numEntries, sbyte value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -3990,7 +3808,7 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt16)
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.UInt16)
             {
                 returnType = GetSafeRange.Count(length);
             }
@@ -4008,10 +3826,10 @@ Assert.IsNonNegative(length);
                     {
                         v256 broadcast = Avx.mm256_set1_epi16(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4 * 16))
                         {
@@ -4051,42 +3869,38 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi16(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         ushort countTotal = count128.UShort0;
 
                         if (Hint.Likely(length != 0))
@@ -4100,49 +3914,49 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ushort)((ulong)originalLength - countTotal);
-                            } 
+                            }
                         }
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 broadcast = Sse2.set1_epi16(value);
+                        v128 broadcast = Xse.set1_epi16(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi16(count1, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi16(count2, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi16(count3, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count1 = Xse.sub_epi16(count1, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count2 = Xse.sub_epi16(count2, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count3 = Xse.sub_epi16(count3, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 4 * 8;
                         }
 
-                        count0 = Sse2.add_epi16(count0, count1);
-                        count2 = Sse2.add_epi16(count2, count3);
-                        count0 = Sse2.add_epi16(count0, count2);
+                        count0 = Xse.add_epi16(count0, count1);
+                        count2 = Xse.add_epi16(count2, count3);
+                        count0 = Xse.add_epi16(count0, count2);
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 8;
                                 }
@@ -4156,33 +3970,30 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         ushort countTotal = count0.UShort0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -4194,11 +4005,11 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ushort)((ulong)originalLength - countTotal);
-                            } 
+                            }
                         }
 
                         return countTotal;
@@ -4222,14 +4033,14 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v256 ZERO = Avx.mm256_setzero_si256();
-                        
+
                         v256 broadcast = Avx.mm256_set1_epi16(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 intCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 intCount= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4 * 16 * ushort.MaxValue))
                         {
@@ -4243,7 +4054,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.Shorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 16 * ushort.MaxValue;
@@ -4263,7 +4074,7 @@ Assert.IsNonNegative(length);
                             count2 = Avx.mm256_setzero_si256();
                             count3 = Avx.mm256_setzero_si256();
                         }
-                        
+
                         if (Hint.Likely(length >= 4 * 16))
                         {
                             do
@@ -4274,7 +4085,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.Shorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 length -= 4 * 16;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 16));
 
                             v256 intSum0 = Avx2.mm256_add_epi32(Avx2.mm256_unpacklo_epi16(count0, ZERO), Avx2.mm256_unpacklo_epi16(count1, ZERO));
@@ -4314,48 +4125,44 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
-                        v128 intCount128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(intCount), Avx2.mm256_extracti128_si256(intCount, 1));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        v128 intCount128 = Xse.add_epi32(Avx.mm256_castsi256_si128(intCount), Avx2.mm256_extracti128_si256(intCount, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        intCount128 = Sse2.add_epi32(intCount128, Sse2.bsrli_si128(intCount128, 2 * sizeof(uint)));
+
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        intCount128 = Xse.add_epi32(intCount128, Xse.bsrli_si128(intCount128, 2 * sizeof(uint)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        count128 = Sse4_1.cvtepu16_epi32(count128);
-                        intCount128 = Sse2.add_epi32(intCount128, Sse2.bsrli_si128(intCount128, 1 * sizeof(uint)));
-                        uint countTotal = Sse2.add_epi32(intCount128, count128).UInt0;
-                        
+                        count128 = Xse.add_epi16(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.cvtepu16_epi32(count128);
+                        intCount128 = Xse.add_epi32(intCount128, Xse.bsrli_si128(intCount128, 1 * sizeof(uint)));
+                        uint countTotal = Xse.add_epi32(intCount128, count128).UInt0;
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -4367,26 +4174,26 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (uint)((ulong)originalLength - countTotal);
-                            } 
+                            }
                         }
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse2.set1_epi16(value);
+                        v128 broadcast = Xse.set1_epi16(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 intCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 intCount = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 8 * ushort.MaxValue))
                         {
@@ -4394,72 +4201,72 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 8 * ushort.MaxValue;
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            intCount = Sse2.add_epi32(intCount, intSum0);
+                            intCount = Xse.add_epi32(intCount, intSum0);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
-                        
+
                         if (Hint.Likely(length >= 4 * 8))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 4 * 8;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 8));
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            intCount = Sse2.add_epi32(intCount, intSum0);
+                            intCount = Xse.add_epi32(intCount, intSum0);
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 8;
                                 }
@@ -4473,32 +4280,29 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
-                        intCount = Sse2.add_epi32(intCount, Sse2.bsrli_si128(intCount, 2 * sizeof(uint)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        intCount = Xse.add_epi32(intCount, Xse.bsrli_si128(intCount, 2 * sizeof(uint)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Sse4_1.IsSse41Supported)
                         {
@@ -4506,12 +4310,12 @@ Assert.IsNonNegative(length);
                         }
                         else
                         {
-                            count0 = Sse2.and_si128(count0, Sse2.cvtsi32_si128(ushort.MaxValue));
+                            count0 = Xse.and_si128(count0, Xse.cvtsi32_si128(ushort.MaxValue));
                         }
 
-                        intCount = Sse2.add_epi32(intCount, Sse2.bsrli_si128(intCount, 1 * sizeof(uint)));
-                        uint countTotal = Sse2.add_epi32(intCount, count0).UInt0;
-                        
+                        intCount = Xse.add_epi32(intCount, Xse.bsrli_si128(intCount, 1 * sizeof(uint)));
+                        uint countTotal = Xse.add_epi32(intCount, count0).UInt0;
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -4523,11 +4327,11 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (uint)((ulong)originalLength - countTotal);
-                            } 
+                            }
                         }
 
                         return countTotal;
@@ -4551,14 +4355,14 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v256 ZERO = Avx.mm256_setzero_si256();
-                        
+
                         v256 broadcast = Avx.mm256_set1_epi16(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4 * 16 * ushort.MaxValue))
                         {
@@ -4572,7 +4376,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.Shorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 16 * ushort.MaxValue;
@@ -4593,7 +4397,7 @@ Assert.IsNonNegative(length);
                             count2 = Avx.mm256_setzero_si256();
                             count3 = Avx.mm256_setzero_si256();
                         }
-                        
+
                         if (Hint.Likely(length >= 4 * 16))
                         {
                             do
@@ -4604,7 +4408,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi16(count3, Compare.Shorts256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 length -= 4 * 16;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 16));
 
                             v256 intSum0 = Avx2.mm256_add_epi32(Avx2.mm256_unpacklo_epi16(count0, ZERO), Avx2.mm256_unpacklo_epi16(count1, ZERO));
@@ -4645,47 +4449,43 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi16(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 8;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
-                        
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
-                        count128 = Sse2.add_epi16(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        count128 = Xse.add_epi16(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi16(count128, Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi16(count128, Compare.Shorts128(Xse.cvtsi32_si128(*(int*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((int*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi16(count128, Sse2.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
-                        count128 = Sse4_1.cvtepu16_epi64(count128);
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
-                        ulong countTotal = Sse2.add_epi64(longCount128, count128).ULong0;
-                        
+                        count128 = Xse.add_epi16(count128, Xse.shufflelo_epi16(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.cvtepu16_epi64(count128);
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+                        ulong countTotal = Xse.add_epi64(longCount128, count128).ULong0;
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -4697,7 +4497,7 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -4706,17 +4506,17 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = Sse2.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse2.set1_epi16(value);
+                        v128 broadcast = Xse.set1_epi16(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 4 * 8 * ushort.MaxValue))
                         {
@@ -4724,74 +4524,74 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < ushort.MaxValue));
 
                             length -= 4 * 8 * ushort.MaxValue;
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            v128 longSum = Sse2.add_epi64(Sse2.unpacklo_epi32(intSum0, ZERO), Sse2.unpackhi_epi32(intSum0, ZERO));
-                            longCount = Sse2.add_epi64(longCount, longSum);
+                            v128 longSum = Xse.add_epi64(Xse.unpacklo_epi32(intSum0, ZERO), Xse.unpackhi_epi32(intSum0, ZERO));
+                            longCount = Xse.add_epi64(longCount, longSum);
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
-                        
+
                         if (Hint.Likely(length >= 4 * 8))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi16(count1, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi16(count2, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi16(count3, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi16(count1, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi16(count2, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi16(count3, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 4 * 8;
-                            } 
+                            }
                             while (Hint.Likely(length >= 4 * 8));
 
-                            v128 intSum0 = Sse2.add_epi32(Sse2.unpacklo_epi16(count0, ZERO), Sse2.unpacklo_epi16(count1, ZERO));
-                            v128 intSum1 = Sse2.add_epi32(Sse2.unpackhi_epi16(count0, ZERO), Sse2.unpackhi_epi16(count1, ZERO));
-                            v128 intSum2 = Sse2.add_epi32(Sse2.unpacklo_epi16(count2, ZERO), Sse2.unpacklo_epi16(count3, ZERO));
-                            v128 intSum3 = Sse2.add_epi32(Sse2.unpackhi_epi16(count2, ZERO), Sse2.unpackhi_epi16(count3, ZERO));
+                            v128 intSum0 = Xse.add_epi32(Xse.unpacklo_epi16(count0, ZERO), Xse.unpacklo_epi16(count1, ZERO));
+                            v128 intSum1 = Xse.add_epi32(Xse.unpackhi_epi16(count0, ZERO), Xse.unpackhi_epi16(count1, ZERO));
+                            v128 intSum2 = Xse.add_epi32(Xse.unpacklo_epi16(count2, ZERO), Xse.unpacklo_epi16(count3, ZERO));
+                            v128 intSum3 = Xse.add_epi32(Xse.unpackhi_epi16(count2, ZERO), Xse.unpackhi_epi16(count3, ZERO));
 
-                            intSum0 = Sse2.add_epi32(intSum0, intSum1);
-                            intSum2 = Sse2.add_epi32(intSum2, intSum3);
-                            intSum0 = Sse2.add_epi32(intSum0, intSum2);
+                            intSum0 = Xse.add_epi32(intSum0, intSum1);
+                            intSum2 = Xse.add_epi32(intSum2, intSum3);
+                            intSum0 = Xse.add_epi32(intSum0, intSum2);
 
-                            v128 longSum = Sse2.add_epi64(Sse2.unpacklo_epi32(intSum0, ZERO), Sse2.unpackhi_epi32(intSum0, ZERO));
-                            longCount = Sse2.add_epi64(longCount, longSum);
+                            v128 longSum = Xse.add_epi64(Xse.unpacklo_epi32(intSum0, ZERO), Xse.unpackhi_epi32(intSum0, ZERO));
+                            longCount = Xse.add_epi64(longCount, longSum);
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 8;
                                 }
@@ -4805,43 +4605,40 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi16(count0, Compare.Shorts128(Sse2.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi16(count0, Compare.Shorts128(Xse.cvtsi32_si128(*(int*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((int*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi16(count0, Sse2.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi16(count0, Xse.shufflelo_epi16(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         if (Sse4_1.IsSse41Supported)
                         {
                             count0 = Sse4_1.cvtepu16_epi64(count0);
                         }
                         else
                         {
-                            count0 = Sse2.and_si128(count0, Sse2.cvtsi32_si128(ushort.MaxValue));
+                            count0 = Xse.and_si128(count0, Xse.cvtsi32_si128(ushort.MaxValue));
                         }
 
-                        longCount = Sse2.add_epi64(longCount, Sse2.bsrli_si128(longCount, 1 * sizeof(ulong)));
-                        ulong countTotal = Sse2.add_epi64(longCount, count0).ULong0;
-                        
+                        longCount = Xse.add_epi64(longCount, Xse.bsrli_si128(longCount, 1 * sizeof(ulong)));
+                        ulong countTotal = Xse.add_epi64(longCount, count0).ULong0;
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -4853,7 +4650,7 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -4897,7 +4694,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<short> array, int index, int numEntries, short value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -4919,7 +4716,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<short> array, int index, int numEntries, short value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -4941,7 +4738,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<short> array, int index, int numEntries, short value, Comparison where = Comparison.EqualTo, TypeCode returnType = TypeCode.Int32)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, returnType);
         }
@@ -4953,13 +4750,13 @@ Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
 Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt32)
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.UInt32)
             {
                 returnType = GetSafeRange.Count(length);
             }
 
             long originalLength = length;
-            
+
             switch (returnType)
             {
                 case TypeCode.Byte:
@@ -4973,10 +4770,10 @@ Assert.IsNonNegative(length);
                     {
                         v256 broadcast = Avx.mm256_set1_epi32(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 32))
                         {
@@ -4984,7 +4781,7 @@ Assert.IsNonNegative(length);
                             count1 = Avx2.mm256_sub_epi32(count1, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                             count2 = Avx2.mm256_sub_epi32(count2, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                             count3 = Avx2.mm256_sub_epi32(count3, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
-                            
+
                             length -= 32;
                         }
 
@@ -5014,33 +4811,30 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Ints128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Ints128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Ints128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         uint countTotal = count128.UInt0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -5052,7 +4846,7 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (uint)((ulong)originalLength - countTotal);
@@ -5061,39 +4855,39 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 broadcast = Sse2.set1_epi32(value);
+                        v128 broadcast = Xse.set1_epi32(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 16))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi32(count1, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi32(count2, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi32(count3, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count1 = Xse.sub_epi32(count1, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count2 = Xse.sub_epi32(count2, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                            count3 = Xse.sub_epi32(count3, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 16;
                         }
 
-                        count0 = Sse2.add_epi32(Sse2.add_epi32(count0, count1), Sse2.add_epi32(count2, count3));
+                        count0 = Xse.add_epi32(Xse.add_epi32(count0, count1), Xse.add_epi32(count2, count3));
 
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 4;
                                 }
@@ -5107,22 +4901,20 @@ Assert.IsNonNegative(length);
                                 length -= 4;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         uint countTotal = count0.UInt0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -5134,7 +4926,7 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (uint)((ulong)originalLength - countTotal);
@@ -5161,15 +4953,15 @@ Assert.IsNonNegative(length);
                 {
                     if (Avx2.IsAvx2Supported)
                     {
-                        v256 ZERO = default(v256);
+                        v256 ZERO= Avx.mm256_setzero_si256();
 
                         v256 broadcast = Avx.mm256_set1_epi32(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 4L * 8 * uint.MaxValue))
                         {
@@ -5183,7 +4975,7 @@ Assert.IsNonNegative(length);
                                 count3 = Avx2.mm256_sub_epi32(count3, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < uint.MaxValue));
 
                             v256 longSum0 = Avx2.mm256_add_epi64(Avx2.mm256_unpacklo_epi32(count0, ZERO), Avx2.mm256_unpacklo_epi32(count1, ZERO));
@@ -5209,7 +5001,7 @@ Assert.IsNonNegative(length);
                                 count1 = Avx2.mm256_sub_epi32(count1, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                                 count2 = Avx2.mm256_sub_epi32(count2, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
                                 count3 = Avx2.mm256_sub_epi32(count3, Compare.Ints256(Avx.mm256_loadu_si256(ptr_v256++), broadcast, where));
-                            } 
+                            }
                             while (Hint.Likely(length >= 32));
 
                             v256 longSum0 = Avx2.mm256_add_epi64(Avx2.mm256_unpacklo_epi32(count0, ZERO), Avx2.mm256_unpacklo_epi32(count1, ZERO));
@@ -5248,35 +5040,32 @@ Assert.IsNonNegative(length);
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        v128 count128 = Xse.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Ints128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Ints128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Ints128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         ulong countTotal = count128.UInt0 + longCount128.ULong0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -5288,7 +5077,7 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -5297,17 +5086,17 @@ Assert.IsNonNegative(length);
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = default(v128);
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse2.set1_epi32(value);
+                        v128 broadcast = Xse.set1_epi32(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
                         if (Hint.Likely(length >= 4L * 4 * uint.MaxValue))
                         {
@@ -5315,64 +5104,64 @@ Assert.IsNonNegative(length);
 
                             do
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi32(count1, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi32(count2, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi32(count3, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi32(count1, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi32(count2, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi32(count3, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < uint.MaxValue));
 
                             length -= 4L * 4 * uint.MaxValue;
 
-                            v128 longSum0 = Sse2.add_epi64(Sse2.unpacklo_epi32(count0, ZERO), Sse2.unpacklo_epi32(count1, ZERO));
-                            v128 longSum1 = Sse2.add_epi64(Sse2.unpackhi_epi32(count0, ZERO), Sse2.unpackhi_epi32(count1, ZERO));
-                            v128 longSum2 = Sse2.add_epi64(Sse2.unpacklo_epi32(count2, ZERO), Sse2.unpacklo_epi32(count3, ZERO));
-                            v128 longSum3 = Sse2.add_epi64(Sse2.unpackhi_epi32(count2, ZERO), Sse2.unpackhi_epi32(count3, ZERO));
+                            v128 longSum0 = Xse.add_epi64(Xse.unpacklo_epi32(count0, ZERO), Xse.unpacklo_epi32(count1, ZERO));
+                            v128 longSum1 = Xse.add_epi64(Xse.unpackhi_epi32(count0, ZERO), Xse.unpackhi_epi32(count1, ZERO));
+                            v128 longSum2 = Xse.add_epi64(Xse.unpacklo_epi32(count2, ZERO), Xse.unpacklo_epi32(count3, ZERO));
+                            v128 longSum3 = Xse.add_epi64(Xse.unpackhi_epi32(count2, ZERO), Xse.unpackhi_epi32(count3, ZERO));
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(Sse2.add_epi64(longSum0, longSum1), Sse2.add_epi64(longSum2, longSum3)));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(Xse.add_epi64(longSum0, longSum1), Xse.add_epi64(longSum2, longSum3)));
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 16))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi32(count1, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi32(count2, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi32(count3, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count1 = Xse.sub_epi32(count1, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count2 = Xse.sub_epi32(count2, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                                count3 = Xse.sub_epi32(count3, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 16;
-                            } 
+                            }
                             while (Hint.Likely(length >= 16));
 
-                            v128 longSum0 = Sse2.add_epi64(Sse2.unpacklo_epi32(count0, ZERO), Sse2.unpacklo_epi32(count1, ZERO));
-                            v128 longSum1 = Sse2.add_epi64(Sse2.unpackhi_epi32(count0, ZERO), Sse2.unpackhi_epi32(count1, ZERO));
-                            v128 longSum2 = Sse2.add_epi64(Sse2.unpacklo_epi32(count2, ZERO), Sse2.unpacklo_epi32(count3, ZERO));
-                            v128 longSum3 = Sse2.add_epi64(Sse2.unpackhi_epi32(count2, ZERO), Sse2.unpackhi_epi32(count3, ZERO));
+                            v128 longSum0 = Xse.add_epi64(Xse.unpacklo_epi32(count0, ZERO), Xse.unpacklo_epi32(count1, ZERO));
+                            v128 longSum1 = Xse.add_epi64(Xse.unpackhi_epi32(count0, ZERO), Xse.unpackhi_epi32(count1, ZERO));
+                            v128 longSum2 = Xse.add_epi64(Xse.unpacklo_epi32(count2, ZERO), Xse.unpacklo_epi32(count3, ZERO));
+                            v128 longSum3 = Xse.add_epi64(Xse.unpackhi_epi32(count2, ZERO), Xse.unpackhi_epi32(count3, ZERO));
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(Sse2.add_epi64(longSum0, longSum1), Sse2.add_epi64(longSum2, longSum3)));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(Xse.add_epi64(longSum0, longSum1), Xse.add_epi64(longSum2, longSum3)));
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                     length -= 3 * 4;
                                 }
@@ -5386,23 +5175,21 @@ Assert.IsNonNegative(length);
                                 length -= 4;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longCount = Sse2.bsrli_si128(longCount, 1 * sizeof(ulong));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longCount = Xse.bsrli_si128(longCount, 1 * sizeof(ulong));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Ints128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Ints128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         ulong countTotal = count0.UInt0 + longCount.ULong0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
@@ -5414,7 +5201,7 @@ Assert.IsNonNegative(length);
                             countTotal += *(byte*)&comparison;
                         }
                         else
-                        { 
+                        {
                             if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                             {
                                 countTotal = (ulong)originalLength - countTotal;
@@ -5458,7 +5245,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<int> array, int index, int numEntries, int value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -5480,7 +5267,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<int> array, int index, int numEntries, int value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -5502,7 +5289,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<int> array, int index, int numEntries, int value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -5519,10 +5306,10 @@ Assert.IsNonNegative(length);
             {
                 v256 broadcast = Avx.mm256_set1_epi64x(value);
                 v256* ptr_v256 = (v256*)ptr;
-                v256 count0 = default(v256);
-                v256 count1 = default(v256);
-                v256 count2 = default(v256);
-                v256 count3 = default(v256);
+                v256 count0= Avx.mm256_setzero_si256();
+                v256 count1= Avx.mm256_setzero_si256();
+                v256 count2= Avx.mm256_setzero_si256();
+                v256 count3= Avx.mm256_setzero_si256();
 
                 while (Hint.Likely(length >= 16))
                 {
@@ -5560,20 +5347,18 @@ Assert.IsNonNegative(length);
                         length -= 4;
                     }
                 }
-                else { }
 
-                v128 count128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                v128 count128 = Xse.add_epi64(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    count128 = Sse2.sub_epi64(count128, Compare.Longs128(Sse2.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                    count128 = Xse.sub_epi64(count128, Compare.Longs128(Xse.loadu_si128(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                     length -= 2;
                 }
-                else { }
 
-                count128 = Sse2.add_epi64(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                count128 = Xse.add_epi64(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
                 ulong countTotal = count128.ULong0;
 
                 if (Hint.Likely(length != 0))
@@ -5586,49 +5371,48 @@ Assert.IsNonNegative(length);
                     bool comparison = Compare.Longs(*(long*)ptr_v256, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else 
-                { 
+                else
+                {
                     if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                     {
                         countTotal = (ulong)originalLength - countTotal;
                     }
                 }
 
-
                 return countTotal;
             }
-            else if (Sse4_2.IsSse42Supported)
+            else if (BurstArchitecture.IsCMP64Supported)
             {
-                v128 broadcast = Sse2.set1_epi64x(value);
+                v128 broadcast = Xse.set1_epi64x(value);
                 v128* ptr_v128 = (v128*)ptr;
-                v128 count0 = default(v128);
-                v128 count1 = default(v128);
-                v128 count2 = default(v128);
-                v128 count3 = default(v128);
+                v128 count0 = Xse.setzero_si128();
+                v128 count1 = Xse.setzero_si128();
+                v128 count2 = Xse.setzero_si128();
+                v128 count3 = Xse.setzero_si128();
 
                 while (Hint.Likely(length >= 8))
                 {
-                    count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    count1 = Sse2.sub_epi64(count1, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    count2 = Sse2.sub_epi64(count2, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    count3 = Sse2.sub_epi64(count3, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                    
+                    count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                    count1 = Xse.sub_epi64(count1, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                    count2 = Xse.sub_epi64(count2, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                    count3 = Xse.sub_epi64(count3, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+
                     length -= 8;
                 }
 
-                count0 = Sse2.add_epi64(Sse2.add_epi64(count0, count1), Sse2.add_epi64(count2, count3));
+                count0 = Xse.add_epi64(Xse.add_epi64(count0, count1), Xse.add_epi64(count2, count3));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                    count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                        count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             length -= 3 * 2;
                         }
@@ -5642,9 +5426,8 @@ Assert.IsNonNegative(length);
                         length -= 2;
                     }
                 }
-                else { }
 
-                count0 = Sse2.add_epi64(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                count0 = Xse.add_epi64(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
                 ulong countTotal = count0.ULong0;
 
                 if (Hint.Likely(length != 0))
@@ -5657,14 +5440,13 @@ Assert.IsNonNegative(length);
                     bool comparison = Compare.Longs(*(long*)ptr_v128, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else 
-                { 
+                else
+                {
                     if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                     {
                         countTotal = (ulong)originalLength - countTotal;
                     }
                 }
-
 
                 return countTotal;
             }
@@ -5672,36 +5454,36 @@ Assert.IsNonNegative(length);
             {
                 if (where == Comparison.EqualTo || where == Comparison.NotEqualTo)
                 {
-                    v128 broadcast = Sse2.set1_epi64x(value);
+                    v128 broadcast = Xse.set1_epi64x(value);
                     v128* ptr_v128 = (v128*)ptr;
-                    v128 count0 = default(v128);
-                    v128 count1 = default(v128);
-                    v128 count2 = default(v128);
-                    v128 count3 = default(v128);
+                    v128 count0 = Xse.setzero_si128();
+                    v128 count1 = Xse.setzero_si128();
+                    v128 count2 = Xse.setzero_si128();
+                    v128 count3 = Xse.setzero_si128();
 
                     while (Hint.Likely(length >= 8))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        count1 = Sse2.sub_epi64(count1, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        count2 = Sse2.sub_epi64(count2, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        count3 = Sse2.sub_epi64(count3, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
-                        
+                        count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                        count1 = Xse.sub_epi64(count1, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                        count2 = Xse.sub_epi64(count2, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+                        count3 = Xse.sub_epi64(count3, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
+
                         length -= 8;
                     }
 
-                    count0 = Sse2.add_epi64(Sse2.add_epi64(count0, count1), Sse2.add_epi64(count2, count3));
+                    count0 = Xse.add_epi64(Xse.add_epi64(count0, count1), Xse.add_epi64(count2, count3));
 
                     if (Hint.Likely((int)length >= 2))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                        count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                         if (Hint.Likely((int)length >= 2 * 2))
                         {
-                            count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                             if (Hint.Likely((int)length >= 3 * 2))
                             {
-                                count0 = Sse2.sub_epi64(count0, Compare.Longs128(Sse2.loadu_si128(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi64(count0, Compare.Longs128(Xse.loadu_si128(ptr_v128++), broadcast, where));
 
                                 length -= 3 * 2;
                             }
@@ -5715,9 +5497,8 @@ Assert.IsNonNegative(length);
                             length -= 2;
                         }
                     }
-                    else { }
 
-                    count0 = Sse2.add_epi64(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                    count0 = Xse.add_epi64(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
                     ulong countTotal = count0.ULong0;
 
                     if (Hint.Likely(length != 0))
@@ -5731,13 +5512,12 @@ Assert.IsNonNegative(length);
                         countTotal += *(byte*)&comparison;
                     }
                     else
-                    { 
+                    {
                         if (where == Comparison.NotEqualTo || where == Comparison.GreaterThanOrEqualTo || where == Comparison.LessThanOrEqualTo)
                         {
                             countTotal = (ulong)originalLength - countTotal;
                         }
                     }
-
 
                     return countTotal;
                 }
@@ -5785,7 +5565,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<long> array, int index, int numEntries, long value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -5807,7 +5587,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<long> array, int index, int numEntries, long value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -5829,7 +5609,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<long> array, int index, int numEntries, long value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -5842,7 +5622,7 @@ Assert.IsBetween((int)returnType, (int)TypeCode.SByte, (int)TypeCode.UInt64);
 Assert.IsNonNegative(length);
 Assert.IsFalse(math.isnan(value));
 
-            if (Constant.IsConstantExpression(length) && returnType > TypeCode.UInt32)
+            if (constexpr.IS_CONST(length) && returnType > TypeCode.UInt32)
             {
                 returnType = GetSafeRange.Count(length);
             }
@@ -5860,10 +5640,10 @@ Assert.IsFalse(math.isnan(value));
                     {
                         v256 broadcast = Avx.mm256_set1_ps(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 32))
                         {
@@ -5871,7 +5651,7 @@ Assert.IsFalse(math.isnan(value));
                             count1 = Avx2.mm256_sub_epi32(count1, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
                             count2 = Avx2.mm256_sub_epi32(count2, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
                             count3 = Avx2.mm256_sub_epi32(count3, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
-                            
+
                             length -= 32;
                         }
 
@@ -5901,40 +5681,35 @@ Assert.IsFalse(math.isnan(value));
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 count128 = Xse.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Floats128(Sse.loadu_ps(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Floats128(*(v128*)ptr_v256, Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Floats128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         uint countTotal = count128.UInt0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             bool comparison = Compare.Floats(*(float*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else { }
-
 
                         return countTotal;
                     }
@@ -5942,38 +5717,38 @@ Assert.IsFalse(math.isnan(value));
                     {
                         goto case TypeCode.UInt64;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 broadcast = Sse.set1_ps(value);
+                        v128 broadcast = Xse.set1_ps(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 16))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                            count1 = Sse2.sub_epi32(count1, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                            count2 = Sse2.sub_epi32(count2, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                            count3 = Sse2.sub_epi32(count3, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                            
+                            count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
+                            count1 = Xse.sub_epi32(count1, Compare.Floats128(*ptr_v128++, broadcast, where));
+                            count2 = Xse.sub_epi32(count2, Compare.Floats128(*ptr_v128++, broadcast, where));
+                            count3 = Xse.sub_epi32(count3, Compare.Floats128(*ptr_v128++, broadcast, where));
+
                             length -= 16;
                         }
 
-                        count0 = Sse2.add_epi32(Sse2.add_epi32(count0, count1), Sse2.add_epi32(count2, count3));
+                        count0 = Xse.add_epi32(Xse.add_epi32(count0, count1), Xse.add_epi32(count2, count3));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
 
                                     length -= 3 * 4;
                                 }
@@ -5987,20 +5762,18 @@ Assert.IsFalse(math.isnan(value));
                                 length -= 4;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Floats128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         uint countTotal = count0.UInt0;
 
                         if (Hint.Likely(length != 0))
@@ -6008,8 +5781,6 @@ Assert.IsFalse(math.isnan(value));
                             bool comparison = Compare.Floats(*(float*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else { }
-
 
                         return countTotal;
                     }
@@ -6031,15 +5802,15 @@ Assert.IsFalse(math.isnan(value));
                 {
                     if (Avx2.IsAvx2Supported)
                     {
-                        v256 ZERO = default(v256);
+                        v256 ZERO= Avx.mm256_setzero_si256();
 
                         v256 broadcast = Avx.mm256_set1_ps(value);
                         v256* ptr_v256 = (v256*)ptr;
-                        v256 count0 = default(v256);
-                        v256 count1 = default(v256);
-                        v256 count2 = default(v256);
-                        v256 count3 = default(v256);
-                        v256 longCount = default(v256);
+                        v256 count0= Avx.mm256_setzero_si256();
+                        v256 count1= Avx.mm256_setzero_si256();
+                        v256 count2= Avx.mm256_setzero_si256();
+                        v256 count3= Avx.mm256_setzero_si256();
+                        v256 longCount= Avx.mm256_setzero_si256();
 
 
                         if (Hint.Likely(length >= 4L * 8 * uint.MaxValue))
@@ -6052,9 +5823,9 @@ Assert.IsFalse(math.isnan(value));
                                 count1 = Avx2.mm256_sub_epi32(count1, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
                                 count2 = Avx2.mm256_sub_epi32(count2, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
                                 count3 = Avx2.mm256_sub_epi32(count3, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
-                                
+
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < uint.MaxValue));
 
                             length -= 4L * 8 * uint.MaxValue;
@@ -6080,7 +5851,7 @@ Assert.IsFalse(math.isnan(value));
                                 count1 = Avx2.mm256_sub_epi32(count1, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
                                 count2 = Avx2.mm256_sub_epi32(count2, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
                                 count3 = Avx2.mm256_sub_epi32(count3, Compare.Floats256(Avx.mm256_loadu_ps(ptr_v256++), broadcast, where));
-                                
+
                                 length -= 32;
                             }
                             while (Hint.Likely(length >= 32));
@@ -6119,42 +5890,37 @@ Assert.IsFalse(math.isnan(value));
                                 length -= 8;
                             }
                         }
-                        else { }
 
-                        v128 count128 = Sse2.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
-                        v128 longCount128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
+                        v128 count128 = Xse.add_epi32(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                        v128 longCount128 = Xse.add_epi64(Avx.mm256_castsi256_si128(longCount), Avx2.mm256_extracti128_si256(longCount, 1));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Floats128(Sse.loadu_ps(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Floats128(*(v128*)ptr_v256, Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longCount128 = Sse2.add_epi64(longCount128, Sse2.bsrli_si128(longCount128, 1 * sizeof(ulong)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longCount128 = Xse.add_epi64(longCount128, Xse.bsrli_si128(longCount128, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count128 = Sse2.sub_epi32(count128, Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            count128 = Xse.sub_epi32(count128, Compare.Floats128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count128 = Sse2.add_epi32(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count128 = Xse.add_epi32(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 0, 1)));
                         ulong countTotal = count128.UInt0 + longCount128.ULong0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             bool comparison = Compare.Floats(*(float*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else { }
-
 
                         return countTotal;
                     }
@@ -6224,23 +5990,20 @@ Assert.IsFalse(math.isnan(value));
                                 length -= 8;
                             }
                         }
-                        else { }
-
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            countTotal += (uint)Popcnt.popcnt_u32((uint)Sse.movemask_ps(Compare.Floats128(Sse.loadu_ps(ptr_v256), Avx.mm256_castsi256_si128(broadcast), where)));
+                            countTotal += (uint)Popcnt.popcnt_u32((uint)Xse.movemask_ps(Compare.Floats128(*(v128*)ptr_v256, Avx.mm256_castsi256_si128(broadcast), where)));
 
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            int mask = Sse.movemask_ps(Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
+                            int mask = Xse.movemask_ps(Compare.Floats128(Xse.cvtsi64x_si128(*(long*)ptr_v256), Avx.mm256_castsi256_si128(broadcast), where));
 
-                            if (Constant.IsConstantExpression(where) && !PartialVectors.ShouldMask(where, value))
+                            if (constexpr.IS_CONST(where) && constexpr.IS_CONST(value) && !PartialVectors.ShouldMask(where, value))
                             {
                                 ;
                             }
@@ -6254,29 +6017,26 @@ Assert.IsFalse(math.isnan(value));
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
                         if (Hint.Likely(length != 0))
                         {
                             bool comparison = Compare.Floats(*(float*)ptr_v256, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else { }
-
 
                         return countTotal;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = default(v128);
+                        v128 ZERO = Xse.setzero_si128();
 
-                        v128 broadcast = Sse.set1_ps(value);
+                        v128 broadcast = Xse.set1_ps(value);
                         v128* ptr_v128 = (v128*)ptr;
-                        v128 count0 = default(v128);
-                        v128 count1 = default(v128);
-                        v128 count2 = default(v128);
-                        v128 count3 = default(v128);
-                        v128 longCount = default(v128);
+                        v128 count0 = Xse.setzero_si128();
+                        v128 count1 = Xse.setzero_si128();
+                        v128 count2 = Xse.setzero_si128();
+                        v128 count3 = Xse.setzero_si128();
+                        v128 longCount = Xse.setzero_si128();
 
 
                         if (Hint.Likely(length >= 4L * 4 * uint.MaxValue))
@@ -6285,64 +6045,64 @@ Assert.IsFalse(math.isnan(value));
 
                             do
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi32(count1, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi32(count2, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi32(count3, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                
+                                count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
+                                count1 = Xse.sub_epi32(count1, Compare.Floats128(*ptr_v128++, broadcast, where));
+                                count2 = Xse.sub_epi32(count2, Compare.Floats128(*ptr_v128++, broadcast, where));
+                                count3 = Xse.sub_epi32(count3, Compare.Floats128(*ptr_v128++, broadcast, where));
+
                                 loopCounter++;
-                            } 
+                            }
                             while (Hint.Likely(loopCounter < uint.MaxValue));
 
                             length -= 4L * 4 * uint.MaxValue;
 
-                            v128 longSum0 = Sse2.add_epi64(Sse2.unpacklo_epi32(count0, ZERO), Sse2.unpacklo_epi32(count1, ZERO));
-                            v128 longSum1 = Sse2.add_epi64(Sse2.unpackhi_epi32(count0, ZERO), Sse2.unpackhi_epi32(count1, ZERO));
-                            v128 longSum2 = Sse2.add_epi64(Sse2.unpacklo_epi32(count2, ZERO), Sse2.unpacklo_epi32(count3, ZERO));
-                            v128 longSum3 = Sse2.add_epi64(Sse2.unpackhi_epi32(count2, ZERO), Sse2.unpackhi_epi32(count3, ZERO));
+                            v128 longSum0 = Xse.add_epi64(Xse.unpacklo_epi32(count0, ZERO), Xse.unpacklo_epi32(count1, ZERO));
+                            v128 longSum1 = Xse.add_epi64(Xse.unpackhi_epi32(count0, ZERO), Xse.unpackhi_epi32(count1, ZERO));
+                            v128 longSum2 = Xse.add_epi64(Xse.unpacklo_epi32(count2, ZERO), Xse.unpacklo_epi32(count3, ZERO));
+                            v128 longSum3 = Xse.add_epi64(Xse.unpackhi_epi32(count2, ZERO), Xse.unpackhi_epi32(count3, ZERO));
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(Sse2.add_epi64(longSum0, longSum1), Sse2.add_epi64(longSum2, longSum3)));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(Xse.add_epi64(longSum0, longSum1), Xse.add_epi64(longSum2, longSum3)));
 
-                            count0 = Sse2.setzero_si128();
-                            count1 = Sse2.setzero_si128();
-                            count2 = Sse2.setzero_si128();
-                            count3 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
+                            count1 = Xse.setzero_si128();
+                            count2 = Xse.setzero_si128();
+                            count3 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely(length >= 16))
                         {
                             do
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                count1 = Sse2.sub_epi32(count1, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                count2 = Sse2.sub_epi32(count2, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                count3 = Sse2.sub_epi32(count3, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                                
+                                count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
+                                count1 = Xse.sub_epi32(count1, Compare.Floats128(*ptr_v128++, broadcast, where));
+                                count2 = Xse.sub_epi32(count2, Compare.Floats128(*ptr_v128++, broadcast, where));
+                                count3 = Xse.sub_epi32(count3, Compare.Floats128(*ptr_v128++, broadcast, where));
+
                                 length -= 16;
                             }
                             while (Hint.Likely(length >= 16));
 
-                            v128 longSum0 = Sse2.add_epi64(Sse2.unpacklo_epi32(count0, ZERO), Sse2.unpacklo_epi32(count1, ZERO));
-                            v128 longSum1 = Sse2.add_epi64(Sse2.unpackhi_epi32(count0, ZERO), Sse2.unpackhi_epi32(count1, ZERO));
-                            v128 longSum2 = Sse2.add_epi64(Sse2.unpacklo_epi32(count2, ZERO), Sse2.unpacklo_epi32(count3, ZERO));
-                            v128 longSum3 = Sse2.add_epi64(Sse2.unpackhi_epi32(count2, ZERO), Sse2.unpackhi_epi32(count3, ZERO));
+                            v128 longSum0 = Xse.add_epi64(Xse.unpacklo_epi32(count0, ZERO), Xse.unpacklo_epi32(count1, ZERO));
+                            v128 longSum1 = Xse.add_epi64(Xse.unpackhi_epi32(count0, ZERO), Xse.unpackhi_epi32(count1, ZERO));
+                            v128 longSum2 = Xse.add_epi64(Xse.unpacklo_epi32(count2, ZERO), Xse.unpacklo_epi32(count3, ZERO));
+                            v128 longSum3 = Xse.add_epi64(Xse.unpackhi_epi32(count2, ZERO), Xse.unpackhi_epi32(count3, ZERO));
 
-                            longCount = Sse2.add_epi64(longCount, Sse2.add_epi64(Sse2.add_epi64(longSum0, longSum1), Sse2.add_epi64(longSum2, longSum3)));
+                            longCount = Xse.add_epi64(longCount, Xse.add_epi64(Xse.add_epi64(longSum0, longSum1), Xse.add_epi64(longSum2, longSum3)));
 
-                            count0 = Sse2.setzero_si128();
+                            count0 = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                                count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                                    count0 = Xse.sub_epi32(count0, Compare.Floats128(*ptr_v128++, broadcast, where));
 
                                     length -= 3 * 4;
                                 }
@@ -6356,30 +6116,26 @@ Assert.IsFalse(math.isnan(value));
                                 length -= 4;
                             }
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longCount = Sse2.add_epi64(longCount, Sse2.bsrli_si128(longCount, 1 * sizeof(ulong)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        longCount = Xse.add_epi64(longCount, Xse.bsrli_si128(longCount, 1 * sizeof(ulong)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            count0 = Sse2.sub_epi32(count0, Compare.Floats128(Sse2.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
+                            count0 = Xse.sub_epi32(count0, Compare.Floats128(Xse.cvtsi64x_si128(*(long*)ptr_v128), broadcast, where));
 
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        count0 = Sse2.add_epi32(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        count0 = Xse.add_epi32(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 0, 1)));
                         ulong countTotal = count0.UInt0 + longCount.ULong0;
-                        
+
                         if (Hint.Likely(length != 0))
                         {
                             bool comparison = Compare.Floats(*(float*)ptr_v128, value, where);
                             countTotal += *(byte*)&comparison;
                         }
-                        else { }
-
 
                         return countTotal;
                     }
@@ -6417,7 +6173,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<float> array, int index, int numEntries, float value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -6439,7 +6195,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<float> array, int index, int numEntries, float value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -6461,7 +6217,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<float> array, int index, int numEntries, float value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where, TypeCode.Int32);
         }
@@ -6477,10 +6233,10 @@ Assert.IsFalse(math.isnan(value));
             {
                 v256 broadcast = Avx.mm256_set1_pd(value);
                 v256* ptr_v256 = (v256*)ptr;
-                v256 count0 = default(v256);
-                v256 count1 = default(v256);
-                v256 count2 = default(v256);
-                v256 count3 = default(v256);
+                v256 count0= Avx.mm256_setzero_si256();
+                v256 count1= Avx.mm256_setzero_si256();
+                v256 count2= Avx.mm256_setzero_si256();
+                v256 count3= Avx.mm256_setzero_si256();
 
                 while (Hint.Likely(length >= 16))
                 {
@@ -6488,7 +6244,7 @@ Assert.IsFalse(math.isnan(value));
                     count1 = Avx2.mm256_sub_epi64(count1, Compare.Doubles256(Avx.mm256_loadu_pd(ptr_v256++), broadcast, where));
                     count2 = Avx2.mm256_sub_epi64(count2, Compare.Doubles256(Avx.mm256_loadu_pd(ptr_v256++), broadcast, where));
                     count3 = Avx2.mm256_sub_epi64(count3, Compare.Doubles256(Avx.mm256_loadu_pd(ptr_v256++), broadcast, where));
-                    
+
                     length -= 16;
                 }
 
@@ -6518,20 +6274,18 @@ Assert.IsFalse(math.isnan(value));
                         length -= 4;
                     }
                 }
-                else { }
 
-                v128 count128 = Sse2.add_epi64(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
+                v128 count128 = Xse.add_epi64(Avx.mm256_castsi256_si128(count0), Avx2.mm256_extracti128_si256(count0, 1));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    count128 = Sse2.sub_epi64(count128, Compare.Doubles128(Sse.loadu_ps(ptr_v256), Avx.mm256_castpd256_pd128(broadcast), where));
+                    count128 = Xse.sub_epi64(count128, Compare.Doubles128(*(v128*)ptr_v256, Avx.mm256_castpd256_pd128(broadcast), where));
 
                     length -= 2;
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                 }
-                else { }
 
-                count128 = Sse2.add_epi64(count128, Sse2.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
+                count128 = Xse.add_epi64(count128, Xse.shuffle_epi32(count128, Sse.SHUFFLE(0, 0, 3, 2)));
                 ulong countTotal = count128.ULong0;
 
                 if (Hint.Likely(length != 0))
@@ -6539,8 +6293,6 @@ Assert.IsFalse(math.isnan(value));
                     bool comparison = Compare.Doubles(*(double*)ptr_v256, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else { }
-
 
                 return countTotal;
             }
@@ -6610,59 +6362,55 @@ Assert.IsFalse(math.isnan(value));
                         length -= 4;
                     }
                 }
-                else { }
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    countTotal += (uint)Popcnt.popcnt_u32((uint)Sse2.movemask_pd(Compare.Doubles128(Sse.loadu_ps(ptr_v256), Avx.mm256_castpd256_pd128(broadcast), where)));
+                    countTotal += (uint)Popcnt.popcnt_u32((uint)Xse.movemask_pd(Compare.Doubles128(*(v128*)ptr_v256, Avx.mm256_castpd256_pd128(broadcast), where)));
 
                     length -= 2;
                     ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                 }
-                else { }
 
                 if (Hint.Likely(length != 0))
                 {
                     bool comparison = Compare.Doubles(*(double*)ptr_v256, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else { }
-
 
                 return countTotal;
             }
-            else if (Sse2.IsSse2Supported)
+            else if (BurstArchitecture.IsSIMDSupported)
             {
-                v128 broadcast = Sse2.set1_pd(value);
+                v128 broadcast = Xse.set1_pd(value);
                 v128* ptr_v128 = (v128*)ptr;
-                v128 count0 = default(v128);
-                v128 count1 = default(v128);
-                v128 count2 = default(v128);
-                v128 count3 = default(v128);
+                v128 count0 = Xse.setzero_si128();
+                v128 count1 = Xse.setzero_si128();
+                v128 count2 = Xse.setzero_si128();
+                v128 count3 = Xse.setzero_si128();
 
                 while (Hint.Likely(length >= 8))
                 {
-                    count0 = Sse2.sub_epi64(count0, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                    count1 = Sse2.sub_epi64(count1, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                    count2 = Sse2.sub_epi64(count2, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                    count3 = Sse2.sub_epi64(count3, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
-                    
+                    count0 = Xse.sub_epi64(count0, Compare.Doubles128(*ptr_v128++, broadcast, where));
+                    count1 = Xse.sub_epi64(count1, Compare.Doubles128(*ptr_v128++, broadcast, where));
+                    count2 = Xse.sub_epi64(count2, Compare.Doubles128(*ptr_v128++, broadcast, where));
+                    count3 = Xse.sub_epi64(count3, Compare.Doubles128(*ptr_v128++, broadcast, where));
+
                     length -= 8;
                 }
 
-                count0 = Sse2.add_epi64(Sse2.add_epi64(count0, count1), Sse2.add_epi64(count2, count3));
+                count0 = Xse.add_epi64(Xse.add_epi64(count0, count1), Xse.add_epi64(count2, count3));
 
                 if (Hint.Likely((int)length >= 2))
                 {
-                    count0 = Sse2.sub_epi64(count0, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                    count0 = Xse.sub_epi64(count0, Compare.Doubles128(*ptr_v128++, broadcast, where));
 
                     if (Hint.Likely((int)length >= 2 * 2))
                     {
-                        count0 = Sse2.sub_epi64(count0, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                        count0 = Xse.sub_epi64(count0, Compare.Doubles128(*ptr_v128++, broadcast, where));
 
                         if (Hint.Likely((int)length >= 3 * 2))
                         {
-                            count0 = Sse2.sub_epi64(count0, Compare.Doubles128(Sse.loadu_ps(ptr_v128++), broadcast, where));
+                            count0 = Xse.sub_epi64(count0, Compare.Doubles128(*ptr_v128++, broadcast, where));
 
                             length -= 3 * 2;
                         }
@@ -6676,9 +6424,8 @@ Assert.IsFalse(math.isnan(value));
                         length -= 2;
                     }
                 }
-                else { }
 
-                count0 = Sse2.add_epi64(count0, Sse2.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
+                count0 = Xse.add_epi64(count0, Xse.shuffle_epi32(count0, Sse.SHUFFLE(0, 0, 3, 2)));
                 ulong countTotal = count0.ULong0;
 
                 if (Hint.Likely(length != 0))
@@ -6686,8 +6433,6 @@ Assert.IsFalse(math.isnan(value));
                     bool comparison = Compare.Doubles(*(double*)ptr_v128, value, where);
                     countTotal += *(byte*)&comparison;
                 }
-                else { }
-
 
                 return countTotal;
             }
@@ -6722,7 +6467,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeArray<double> array, int index, int numEntries, double value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -6744,7 +6489,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeList<double> array, int index, int numEntries, double value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
@@ -6766,7 +6511,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SIMD_Count(this NativeSlice<double> array, int index, int numEntries, double value, Comparison where = Comparison.EqualTo)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return (int)SIMD_Count((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, value, where);
         }
