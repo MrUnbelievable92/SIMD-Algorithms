@@ -6,8 +6,11 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Burst;
 using DevTools;
+using MaxMath;
 
 using static Unity.Burst.Intrinsics.X86;
+using static MaxMath.maxmath;
+using MaxMath.Intrinsics;
 
 namespace SIMDAlgorithms
 {
@@ -16,6 +19,122 @@ namespace SIMDAlgorithms
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(byte* ptr, long length, TypeCode range = TypeCode.Empty)
         {
+            static bool ConstChecks256(void* startPtr, ulong length, out v256 result)
+            {
+                if (Avx2.IsAvx2Supported)
+                {
+                    if (constexpr.IS_TRUE(length == 128))
+                    {
+                        v256 sad0 = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[0]);
+                        v256 sad1 = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[1]);
+                        v256 sad2 = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[2]);
+                        v256 sad3 = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[3]);
+
+                        v256 sum0 = Avx2.mm256_add_epi64(sad0, sad1);
+                        v256 sum1 = Avx2.mm256_add_epi64(sad2, sad3);
+                        v256 sum2 = Avx2.mm256_add_epi64(sum1, sum0);
+
+                        result = sum2;
+
+                        return true;
+                    }
+
+                    if (constexpr.IS_TRUE(length == 96))
+                    {
+                        result = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[0]);
+                        result = Avx2.mm256_add_epi64(result, Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[1]));
+                        result = Avx2.mm256_add_epi64(result, Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[2]));
+
+                        return true;
+                    }
+
+                    if (constexpr.IS_TRUE(length == 64))
+                    {
+                        result = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[0]);
+                        result = Avx2.mm256_add_epi64(result, Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[1]));
+
+                        return true;
+                    }
+
+                    if (constexpr.IS_TRUE(length == 32))
+                    {
+                        result = Avx2.mm256_sad_epu8(Avx.mm256_setzero_si256(), ((v256*)startPtr)[0]);
+
+                        return true;
+                    }
+                }
+
+
+                result = default;
+                return false;
+            }
+            static bool ConstChecks128(void* startPtr, ulong length, out v128 result)
+            {
+                if (BurstArchitecture.IsSIMDSupported)
+                {
+                    if (constexpr.IS_TRUE(length == 16))
+                    {
+                        result = Xse.sad_epu8(Xse.setzero_si128(), Xse.loadu_si128(startPtr));
+                        result = Xse.add_epi64(result, Xse.shuffle_epi32(result, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        return true;
+                    }
+
+                    if (constexpr.IS_TRUE(length == 8))
+                    {
+                        result = Xse.sad_epu8(Xse.setzero_si128(), Xse.cvtsi64x_si128(*(long*)startPtr));
+
+                        return true;
+                    }
+
+                    if (constexpr.IS_TRUE(length == 4))
+                    {
+                        result = Xse.sad_epu8(Xse.setzero_si128(), Xse.cvtsi32_si128(*(int*)startPtr));
+
+                        return true;
+                    }
+                }
+
+                result = default;
+                return false;
+            }
+            static bool ConstChecksScalar(void* startPtr, ulong length, out ulong scalarResult)
+            {
+                if (BurstArchitecture.IsSIMDSupported)
+                {
+                    if (constexpr.IS_TRUE(length == 3))
+                    {
+                        scalarResult = ((byte*)startPtr)[0];
+                        scalarResult += ((byte*)startPtr)[1];
+                        scalarResult += ((byte*)startPtr)[2];
+
+                        return true;
+                    }
+                    if (constexpr.IS_TRUE(length == 2))
+                    {
+                        scalarResult = ((byte*)startPtr)[0];
+                        scalarResult += ((byte*)startPtr)[1];
+
+                        return true;
+                    }
+                    if (constexpr.IS_TRUE(length == 1))
+                    {
+                        scalarResult = ((byte*)startPtr)[0];
+
+                        return true;
+                    }
+                    if (constexpr.IS_TRUE(length == 0))
+                    {
+                        scalarResult = 0;
+                        return true;
+                    }
+                }
+
+                scalarResult = 0;
+                return false;
+            }
+
+
 Assert.IsNonNegative(length);
 
             switch (range)
@@ -38,15 +157,20 @@ Assert.IsNonNegative(length);
                 {
                     if (Avx2.IsAvx2Supported)
                     {
-                        v256 ZERO = default(v256); 
+                        if (ConstChecks256(   ptr, (ulong)length, out v256 result256)) return maxmath.csum((ulong4)result256);
+                        if (ConstChecks128(   ptr, (ulong)length, out v128 result128)) return maxmath.csum((ulong2)result128);
+                        if (ConstChecksScalar(ptr, (ulong)length, out ulong result8))  return result8;
+
+                        v256 ZERO= Avx.mm256_setzero_si256();
                         v256* address = (v256*)ptr;
+                        byte* endPtr = ptr + (length - 1);
 
-                        v256 acc0 = default(v256);
-                        v256 acc1 = default(v256);
-                        v256 acc2 = default(v256);
-                        v256 acc3 = default(v256);
+                        v256 acc0= Avx.mm256_setzero_si256();
+                        v256 acc1= Avx.mm256_setzero_si256();
+                        v256 acc2= Avx.mm256_setzero_si256();
+                        v256 acc3= Avx.mm256_setzero_si256();
 
-                        while (Hint.Likely(length >= 128))
+                        while (Hint.Likely((ulong)endPtr - (ulong)address >= 128))
                         {
                             v256 sad0 = Avx2.mm256_sad_epu8(ZERO, Avx.mm256_loadu_si256(address++));
                             v256 sad1 = Avx2.mm256_sad_epu8(ZERO, Avx.mm256_loadu_si256(address++));
@@ -57,14 +181,30 @@ Assert.IsNonNegative(length);
                             acc1 = Avx2.mm256_add_epi64(acc1, sad1);
                             acc2 = Avx2.mm256_add_epi64(acc2, sad2);
                             acc3 = Avx2.mm256_add_epi64(acc3, sad3);
-
-                            length -= 128;
                         }
 
+                        length = (long)((ulong)length % 128);
                         v256 add0 = Avx2.mm256_add_epi64(acc0, acc1);
                         v256 add1 = Avx2.mm256_add_epi64(acc2, acc3);
                         v256 add2 = Avx2.mm256_add_epi64(add0, add1);
 
+                        //if (ConstChecks256(ptr, (ulong)length, out result256))
+                        //{
+                        //    result256 = Avx2.mm256_add_epi64(add2, result256);
+                        //    return maxmath.csum((ulong4)result256);
+                        //}
+                        //if (ConstChecks128(ptr, (ulong)length, out result128))
+                        //{
+                        //    v128 csum128 = Xse.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
+                        //    result128 = Xse.add_epi64(result128, csum128);
+                        //    return maxmath.csum((ulong2)result128);
+                        //}
+                        //if (ConstChecksScalar(ptr, (ulong)length, out result8))
+                        //{
+                        //    v128 csum128 = Xse.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
+                        //    result128 = Xse.add_epi64(result128, csum128);
+                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //}
 
                         if (Hint.Likely((int)length >= 32))
                         {
@@ -89,39 +229,71 @@ Assert.IsNonNegative(length);
                                 length -= 32;
                             }
                         }
-                        else { }
 
-                        v128 csum0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
+                        v128 csum0 = Xse.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
 
+
+                        //if (ConstChecks128(ptr, (ulong)length, out result128))
+                        //{
+                        //    result128 = Xse.add_epi64(result128, csum0);
+                        //    return maxmath.csum((ulong2)result128);
+                        //}
+                        //if (ConstChecksScalar(ptr, (ulong)length, out result8))
+                        //{
+                        //    result128 = Xse.add_epi64(result128, csum0);
+                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //}
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            csum0 = Sse2.add_epi64(csum0, Sse2.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Sse2.loadu_si128(address)));
+                            csum0 = Xse.add_epi64(csum0, Xse.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Xse.loadu_si128(address)));
 
                             address = (v256*)((v128*)address + 1);
                             length -= 16;
                         }
-                        else { }
 
+                        //if (ConstChecks128(ptr, (ulong)length, out result128))
+                        //{
+                        //    result128 = Xse.add_epi64(result128, csum0);
+                        //    return maxmath.csum((ulong2)result128);
+                        //}
+                        //if (ConstChecksScalar(ptr, (ulong)length, out result8))
+                        //{
+                        //    result128 = Xse.add_epi64(result128, csum0);
+                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //}
                         if (Hint.Likely((int)length >= 8))
                         {
-                            csum0 = Sse2.add_epi64(csum0, Sse2.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Sse2.cvtsi64x_si128(*(long*)address)));
+                            csum0 = Xse.add_epi64(csum0, Xse.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Xse.cvtsi64x_si128(*(long*)address)));
                             length -= 8;
                             address = (v256*)((long*)address + 1);
                         }
-                        else { }
 
+                        //if (ConstChecks128(ptr, (ulong)length, out result128))
+                        //{
+                        //    result128 = Xse.add_epi64(result128, csum0);
+                        //    return maxmath.csum((ulong2)result128);
+                        //}
+                        //if (ConstChecksScalar(ptr, (ulong)length, out result8))
+                        //{
+                        //    result128 = Xse.add_epi64(result128, csum0);
+                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //}
                         if (Hint.Likely((int)length >= 4))
                         {
-                            csum0 = Sse2.add_epi64(csum0, Sse2.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Sse2.cvtsi32_si128(*(int*)address)));
+                            csum0 = Xse.add_epi64(csum0, Xse.sad_epu8(Avx.mm256_castsi256_si128(ZERO), Xse.cvtsi32_si128(*(int*)address)));
                             length -= 4;
                             address = (v256*)((int*)address + 1);
                         }
-                        else { }
 
-                        v128 csum = Sse2.add_epi64(csum0, Sse2.shuffle_epi32(csum0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        v128 csum = Xse.add_epi64(csum0, Xse.shuffle_epi32(csum0, Sse.SHUFFLE(0, 0, 3, 2)));
                         ulong sum = csum.ULong0;
 
+
+                        //if (ConstChecksScalar(ptr, (ulong)length, out result8))
+                        //{
+                        //    return sum + result8;
+                        //}
 
                         if (Hint.Likely(length != 0))
                         {
@@ -139,53 +311,49 @@ Assert.IsNonNegative(length);
                                     address = (v256*)((byte*)address + 1);
                                     sum += *(byte*)address;
                                 }
-                                else { }
                             }
-                            else { }
                         }
-                        else { }
-
 
                         return sum;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 ZERO = default(v128);
+                        v128 ZERO = Xse.setzero_si128();
                         v128* address = (v128*)ptr;
 
-                        v128 acc0 = default(v128);
-                        v128 acc1 = default(v128);
-                        v128 acc2 = default(v128);
-                        v128 acc3 = default(v128);
+                        v128 acc0 = Xse.setzero_si128();
+                        v128 acc1 = Xse.setzero_si128();
+                        v128 acc2 = Xse.setzero_si128();
+                        v128 acc3 = Xse.setzero_si128();
 
                         while (Hint.Likely(length >= 64))
                         {
-                            v128 sad0 = Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++));
-                            v128 sad1 = Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++));
-                            v128 sad2 = Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++));
-                            v128 sad3 = Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++));
+                            v128 sad0 = Xse.sad_epu8(ZERO, Xse.loadu_si128(address++));
+                            v128 sad1 = Xse.sad_epu8(ZERO, Xse.loadu_si128(address++));
+                            v128 sad2 = Xse.sad_epu8(ZERO, Xse.loadu_si128(address++));
+                            v128 sad3 = Xse.sad_epu8(ZERO, Xse.loadu_si128(address++));
 
-                            acc0 = Sse2.add_epi64(acc0, sad0);
-                            acc1 = Sse2.add_epi64(acc1, sad1);
-                            acc2 = Sse2.add_epi64(acc2, sad2);
-                            acc3 = Sse2.add_epi64(acc3, sad3);
+                            acc0 = Xse.add_epi64(acc0, sad0);
+                            acc1 = Xse.add_epi64(acc1, sad1);
+                            acc2 = Xse.add_epi64(acc2, sad2);
+                            acc3 = Xse.add_epi64(acc3, sad3);
 
                             length -= 64;
                         }
 
-                        acc0 = Sse2.add_epi64(Sse2.add_epi64(acc0, acc1), Sse2.add_epi64(acc2, acc3));
+                        acc0 = Xse.add_epi64(Xse.add_epi64(acc0, acc1), Xse.add_epi64(acc2, acc3));
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++)));
+                            acc0 = Xse.add_epi64(acc0, Xse.sad_epu8(ZERO, Xse.loadu_si128(address++)));
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++)));
+                                acc0 = Xse.add_epi64(acc0, Xse.sad_epu8(ZERO, Xse.loadu_si128(address++)));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.loadu_si128(address++)));
+                                    acc0 = Xse.add_epi64(acc0, Xse.sad_epu8(ZERO, Xse.loadu_si128(address++)));
                                     length -= 3 * 16;
                                 }
                                 else
@@ -198,28 +366,23 @@ Assert.IsNonNegative(length);
                                 length -= 16;
                             }
                         }
-                        else { }
-
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.cvtsi64x_si128(*(long*)address)));
+                            acc0 = Xse.add_epi64(acc0, Xse.sad_epu8(ZERO, Xse.cvtsi64x_si128(*(long*)address)));
                             length -= 8;
                             address = (v128*)((long*)address + 1);
                         }
-                        else { }
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            acc0 = Sse2.add_epi64(acc0, Sse2.sad_epu8(ZERO, Sse2.cvtsi32_si128(*(int*)address)));
+                            acc0 = Xse.add_epi64(acc0, Xse.sad_epu8(ZERO, Xse.cvtsi32_si128(*(int*)address)));
                             length -= 4;
                             address = (v128*)((int*)address + 1);
                         }
-                        else { }
 
-                        v128 csum = Sse2.add_epi64(acc0, Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        v128 csum = Xse.add_epi64(acc0, Xse.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2)));
                         ulong sum = csum.ULong0;
-
 
                         if (Hint.Likely(length != 0))
                         {
@@ -237,12 +400,8 @@ Assert.IsNonNegative(length);
                                     address = (v128*)((byte*)address + 1);
                                     sum += *(byte*)address;
                                 }
-                                else { }
                             }
-                            else { }
                         }
-                        else { }
-
 
                         return sum;
                     }
@@ -286,7 +445,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -308,7 +467,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -330,7 +489,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<byte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((byte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -372,58 +531,69 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v128* address = (v128*)ptr;
-                        v256 longs = default(v256);
-                        
-                        
+                        v256 longs = Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 32))
                         {
                             int iterations = 0;
-                            v256 acc0 = default(v256);
-                            v256 acc1 = default(v256);
-                            v256 acc2 = default(v256);
-                            v256 acc3 = default(v256);
-                        
-                            while (Hint.Likely(iterations < uint.MaxValue / ushort.MaxValue))
-                            {
-                                acc0 = Avx2.mm256_add_epi32(acc0, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
-                                acc1 = Avx2.mm256_add_epi32(acc1, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
-                                acc2 = Avx2.mm256_add_epi32(acc2, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
-                                acc3 = Avx2.mm256_add_epi32(acc3, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
-                        
-                                iterations++;
-                        
-                                if (Hint.Unlikely((length = length - 32) < 32))
-                                {
-                                    break;
-                                }
-                                else continue;
-                            }
-                        
-                            v256 cast0 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepu32_epi64(Avx.mm256_castsi256_si128(acc0)),
-                                                              Avx2.mm256_cvtepu32_epi64(Avx2.mm256_extracti128_si256(acc0, 1)));
-                            v256 cast1 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepu32_epi64(Avx.mm256_castsi256_si128(acc1)),
-                                                              Avx2.mm256_cvtepu32_epi64(Avx2.mm256_extracti128_si256(acc1, 1)));
-                            v256 cast2 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepu32_epi64(Avx.mm256_castsi256_si128(acc2)),
-                                                              Avx2.mm256_cvtepu32_epi64(Avx2.mm256_extracti128_si256(acc2, 1)));
-                            v256 cast3 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepu32_epi64(Avx.mm256_castsi256_si128(acc3)),
-                                                              Avx2.mm256_cvtepu32_epi64(Avx2.mm256_extracti128_si256(acc3, 1)));
+                            v256 acc0 = Avx.mm256_setzero_si256();
+                            v256 acc1 = Avx.mm256_setzero_si256();
+                            v256 acc2 = Avx.mm256_setzero_si256();
+                            v256 acc3 = Avx.mm256_setzero_si256();
 
-                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(cast0, cast1),
-                                                                                     Avx2.mm256_add_epi64(cast2, cast3)));
+                            while (Hint.Likely(iterations < uint.MaxValue / ushort.MaxValue
+                                & length >= 32))
+                            {
+                                v256 load0 = Xse.mm256_cvt2x2epu16_epi32(Avx.mm256_loadu_si256(address), out v256 load1);
+                                address += 2;
+                                v256 load2 = Xse.mm256_cvt2x2epu16_epi32(Avx.mm256_loadu_si256(address), out v256 load3);
+                                address += 2;
+
+                                acc0 = Avx2.mm256_add_epi32(acc0, load0);
+                                acc1 = Avx2.mm256_add_epi32(acc1, load1);
+                                acc2 = Avx2.mm256_add_epi32(acc2, load2);
+                                acc3 = Avx2.mm256_add_epi32(acc3, load3);
+
+                                length -= 32;
+                                iterations++;
+                            }
+
+                            v256 cast = Xse.mm256_cvt2x2epu32_epi64(acc0, out acc0);
+                            acc0 = Avx2.mm256_add_epi64(cast, acc0);
+                            cast = Xse.mm256_cvt2x2epu32_epi64(acc1, out acc1);
+                            acc1 = Avx2.mm256_add_epi64(cast, acc1);
+                            cast = Xse.mm256_cvt2x2epu32_epi64(acc2, out acc2);
+                            acc2 = Avx2.mm256_add_epi64(cast, acc2);
+                            cast = Xse.mm256_cvt2x2epu32_epi64(acc3, out acc3);
+                            acc3 = Avx2.mm256_add_epi64(cast, acc3);
+
+                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(acc0, acc1), Avx2.mm256_add_epi64(acc2, acc3)));
                         }
-                        
-                            
+
+                        v128 csum_0 = Xse.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
+                        v128 csum_1 = Xse.vsum_epi64(csum_0);
+                        ulong sum = csum_1.ULong0;
+
+                        v128 intSum;
+
                         if (Hint.Likely((int)length >= 8))
                         {
-                            v256 ints = Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++));
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epu16_epi32(load, out v128 hi);
+                            intSum = Xse.add_epi32(lo, hi);
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
+                                load = Xse.loadu_si128(address++);
+                                lo = Xse.cvt2x2epu16_epi32(load, out hi);
+                                intSum = Xse.add_epi32(intSum, Xse.add_epi32(lo, hi));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepu16_epi32(Sse2.loadu_si128(address++)));
+                                    load = Xse.loadu_si128(address++);
+                                    lo = Xse.cvt2x2epu16_epi32(load, out hi);
+                                    intSum = Xse.add_epi32(intSum, Xse.add_epi32(lo, hi));
+
                                     length -= 3 * 8;
                                 }
                                 else
@@ -435,189 +605,122 @@ Assert.IsNonNegative(length);
                             {
                                 length -= 8;
                             }
-
-                            ints = Avx2.mm256_cvtepu32_epi64(Sse2.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1)));
-                            longs = Avx2.mm256_add_epi64(longs, ints);
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 4))
-                        {
-                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepu16_epi64(Sse2.cvtsi64x_si128(*(long*)address)));
-                            length -= 4;
-                            address = (v128*)((long*)address + 1);
-                        }
-                        else { }
-
-                        v128 csum_0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
-
-                        if (Hint.Likely((int)length >= 2))
-                        {
-                            csum_0 = Sse2.add_epi64(csum_0, Sse4_1.cvtepu16_epi64(Sse2.cvtsi32_si128(*(int*)address)));
-                            length -= 2;
-                            address = (v128*)((int*)address + 1);
-                        }
-
-                        v128 csum_1 = Sse2.add_epi64(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 3, 2)));
-                        ulong sum = csum_1.ULong0;
-
-                        if (Hint.Likely(length != 0))
-                        {
-                            sum += *(ushort*)address;
-                        }
-
-
-                        return sum;
-                    }
-                    else if (Sse2.IsSse2Supported)
-                    {
-                        v128* address = (v128*)ptr;
-                        v128 longs = default(v128);
-                        v128 ZERO = default(v128);
-                        
-                        
-                        while (Hint.Likely(length >= 16))
-                        {
-                            int iterations = 0;
-                            v128 acc0 = default(v128);
-                            v128 acc1 = default(v128);
-                            v128 acc2 = default(v128);
-                            v128 acc3 = default(v128);
-                        
-                            while (Hint.Likely(iterations < uint.MaxValue / ushort.MaxValue))
-                            {
-                                v128 _0_7 = Sse2.loadu_si128(address++);
-                                v128 _8_15 = Sse2.loadu_si128(address++);
-
-                                if (Sse4_1.IsSse41Supported)
-                                {
-                                    acc0 = Sse2.add_epi32(acc0, Sse4_1.cvtepu16_epi32(_0_7));
-                                    acc1 = Sse2.add_epi32(acc1, Sse2.unpackhi_epi16(_0_7, ZERO));
-                                    acc2 = Sse2.add_epi32(acc2, Sse4_1.cvtepu16_epi32(_8_15));
-                                    acc3 = Sse2.add_epi32(acc3, Sse2.unpackhi_epi16(_8_15, ZERO));
-                                }
-                                else
-                                {
-                                    acc0 = Sse2.add_epi32(acc0, Sse2.unpacklo_epi16(_0_7, ZERO));
-                                    acc1 = Sse2.add_epi32(acc1, Sse2.unpackhi_epi16(_0_7, ZERO));
-                                    acc2 = Sse2.add_epi32(acc2, Sse2.unpacklo_epi16(_8_15, ZERO));
-                                    acc3 = Sse2.add_epi32(acc3, Sse2.unpackhi_epi16(_8_15, ZERO));
-                                }
-                        
-                                iterations++;
-                        
-                                if (Hint.Unlikely((length = length - 16) < 16))
-                                {
-                                    break;
-                                }
-                                else continue;
-                            }
-
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                v128 cast0 = Sse2.add_epi64(Sse4_1.cvtepu32_epi64(acc0),
-                                                            Sse2.unpackhi_epi32(acc0, ZERO));
-                                v128 cast1 = Sse2.add_epi64(Sse4_1.cvtepu32_epi64(acc1),
-                                                            Sse2.unpackhi_epi32(acc1, ZERO));
-                                v128 cast2 = Sse2.add_epi64(Sse4_1.cvtepu32_epi64(acc2),
-                                                            Sse2.unpackhi_epi32(acc2, ZERO));
-                                v128 cast3 = Sse2.add_epi64(Sse4_1.cvtepu32_epi64(acc3),
-                                                            Sse2.unpackhi_epi32(acc3, ZERO));
-
-                                longs = Sse2.add_epi64(longs, Sse2.add_epi64(Sse2.add_epi64(cast0, cast1),
-                                                                             Sse2.add_epi64(cast2, cast3)));
-                            }
-                            else
-                            {
-                                v128 cast0 = Sse2.add_epi64(Sse2.unpacklo_epi32(acc0, ZERO),
-                                                            Sse2.unpackhi_epi32(acc0, ZERO));
-                                v128 cast1 = Sse2.add_epi64(Sse2.unpacklo_epi32(acc1, ZERO),
-                                                            Sse2.unpackhi_epi32(acc1, ZERO));
-                                v128 cast2 = Sse2.add_epi64(Sse2.unpacklo_epi32(acc2, ZERO),
-                                                            Sse2.unpackhi_epi32(acc2, ZERO));
-                                v128 cast3 = Sse2.add_epi64(Sse2.unpacklo_epi32(acc3, ZERO),
-                                                            Sse2.unpackhi_epi32(acc3, ZERO));
-
-                                longs = Sse2.add_epi64(longs, Sse2.add_epi64(Sse2.add_epi64(cast0, cast1),
-                                                                             Sse2.add_epi64(cast2, cast3)));
-                            }
-                        }
-
-
-                        v128 ints;
-
-                        if (Hint.Likely((int)length >= 8))
-                        {
-                            v128 load = Sse2.loadu_si128(address++);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                ints = Sse2.add_epi32(Sse4_1.cvtepu16_epi32(load),
-                                                      Sse2.unpackhi_epi16(load, ZERO));
-                            }
-                            else
-                            {
-                                ints = Sse2.add_epi32(Sse2.unpacklo_epi16(load, ZERO),
-                                                      Sse2.unpackhi_epi16(load, ZERO));
-                            }
-
-                            length -= 8;
-                        }
-                        else 
-                        {
-                            ints = default(v128);
-                        }
-
-                        if (Hint.Likely((int)length >= 4))
-                        {
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                ints = Sse2.add_epi32(ints, Sse4_1.cvtepu16_epi32(Sse2.cvtsi64x_si128(*(long*)address)));
-                            }
-                            else
-                            {
-                                ints = Sse2.add_epi32(ints, Sse2.unpacklo_epi16(Sse2.cvtsi64x_si128(*(long*)address), ZERO));
-                            }
-
-                            length -= 4;
-                            address = (v128*)((long*)address + 1);
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 2))
-                        {
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                ints = Sse2.add_epi32(ints, Sse4_1.cvtepu16_epi32(Sse2.cvtsi32_si128(*(int*)address)));
-                            }
-                            else
-                            {
-                                ints = Sse2.add_epi32(ints, Sse2.unpacklo_epi16(Sse2.cvtsi32_si128(*(int*)address), ZERO));
-                            }
-
-                            length -= 2;
-                            address = (v128*)((int*)address + 1);
-                        }
-
-                        if (Sse4_1.IsSse41Supported)
-                        {
-                            longs = Sse2.add_epi64(longs, Sse4_1.cvtepu32_epi64(Sse2.add_epi32(ints, Sse2.shuffle_epi32(ints, Sse.SHUFFLE(0, 0, 3, 2)))));
                         }
                         else
                         {
-                            longs = Sse2.add_epi64(longs, Sse2.unpacklo_epi32(Sse2.add_epi32(ints, Sse2.shuffle_epi32(ints, Sse.SHUFFLE(0, 0, 3, 2))), ZERO));
+                            intSum = Xse.setzero_si128();
                         }
 
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepu16_epi32(Xse.cvtsi64x_si128(*(long*)address)));
+                            length -= 4;
+                            address = (v128*)((long*)address + 1);
+                        }
 
-                        v128 csum = Sse2.add_epi64(longs, Sse2.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
-                        ulong sum = csum.ULong0;
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepu16_epi32(Xse.cvtsi32_si128(*(int*)address)));
+                            length -= 2;
+                            address = (v128*)((int*)address + 1);
+                        }
+
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += intSum.UInt0;
 
                         if (Hint.Likely(length != 0))
                         {
                             sum += *(ushort*)address;
                         }
 
+                        return sum;
+                    }
+                    else if (BurstArchitecture.IsSIMDSupported)
+                    {
+                        v128* address = (v128*)ptr;
+                        v128 longs = Xse.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
+
+                        while (Hint.Likely(length >= 16))
+                        {
+                            int iterations = 0;
+                            v128 acc0 = Xse.setzero_si128();
+                            v128 acc1 = Xse.setzero_si128();
+                            v128 acc2 = Xse.setzero_si128();
+                            v128 acc3 = Xse.setzero_si128();
+
+                            while (Hint.Likely(iterations < uint.MaxValue / ushort.MaxValue
+                                 & length >= 16))
+                            {
+                                v128 load0 = Xse.cvt2x2epu16_epi32(Xse.loadu_si128(address++), out v128 load1);
+                                v128 load2 = Xse.cvt2x2epu16_epi32(Xse.loadu_si128(address++), out v128 load3);
+
+                                acc0 = Xse.add_epi32(acc0, load0);
+                                acc1 = Xse.add_epi32(acc1, load1);
+                                acc2 = Xse.add_epi32(acc2, load2);
+                                acc3 = Xse.add_epi32(acc3, load3);
+
+                                length -= 16;
+                                iterations++;
+                            }
+
+                            v128 cast = Xse.cvt2x2epu32_epi64(acc0, out acc0);
+                            acc0 = Xse.add_epi64(cast, acc0);
+                            cast = Xse.cvt2x2epu32_epi64(acc1, out acc1);
+                            acc1 = Xse.add_epi64(cast, acc1);
+                            cast = Xse.cvt2x2epu32_epi64(acc2, out acc2);
+                            acc2 = Xse.add_epi64(cast, acc2);
+                            cast = Xse.cvt2x2epu32_epi64(acc3, out acc3);
+                            acc3 = Xse.add_epi64(cast, acc3);
+
+                            longs = Xse.add_epi64(longs, Xse.add_epi64(Xse.add_epi64(acc0, acc1), Xse.add_epi64(acc2, acc3)));
+                        }
+
+                        v128 csum = Xse.vsum_epi64(longs);
+                        ulong sum = csum.ULong0;
+
+                        v128 intSum;
+
+                        if (Hint.Likely((int)length >= 8))
+                        {
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epu16_epi32(load, out v128 hi);
+                            intSum = Xse.add_epi32(lo, hi);
+
+                            length -= 8;
+                        }
+                        else
+                        {
+                            intSum = Xse.setzero_si128();
+                        }
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepu16_epi32(Xse.cvtsi64x_si128(*(long*)address)));
+
+                            length -= 4;
+                            address = (v128*)((long*)address + 1);
+                        }
+
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepu16_epi32(Xse.cvtsi32_si128(*(int*)address)));
+
+                            length -= 2;
+                            address = (v128*)((int*)address + 1);
+                        }
+
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum  += intSum.UInt0;
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            sum += *(ushort*)address;
+                        }
 
                         return sum;
                     }
@@ -661,7 +764,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -683,7 +786,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -705,7 +808,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<ushort> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((ushort*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -769,7 +872,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -791,7 +894,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -813,7 +916,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<uint> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((uint*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -851,7 +954,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeArray<ulong> array, int index, int numEntries)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
@@ -873,7 +976,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeList<ulong> array, int index, int numEntries)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
@@ -895,7 +998,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SIMD_Sum(this NativeSlice<ulong> array, int index, int numEntries)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((ulong*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
@@ -937,58 +1040,68 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v128* address = (v128*)ptr;
-                        v256 ints = default(v256);
-                
-                
+                        v256 ints= Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 64))
                         {
                             int iterations = 0;
-                            v256 acc0 = default(v256);
-                            v256 acc1 = default(v256);
-                            v256 acc2 = default(v256);
-                            v256 acc3 = default(v256);
-                
-                            while (Hint.Likely(iterations < short.MinValue / sbyte.MinValue))
+                            v256 acc0= Avx.mm256_setzero_si256();
+                            v256 acc1= Avx.mm256_setzero_si256();
+                            v256 acc2= Avx.mm256_setzero_si256();
+                            v256 acc3= Avx.mm256_setzero_si256();
+
+                            while (Hint.Likely(iterations < short.MinValue / sbyte.MinValue
+                                & length >= 64))
                             {
-                                acc0 = Avx2.mm256_add_epi16(acc0, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                acc1 = Avx2.mm256_add_epi16(acc1, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                acc2 = Avx2.mm256_add_epi16(acc2, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                acc3 = Avx2.mm256_add_epi16(acc3, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                
+                                v256 load0 = Xse.mm256_cvt2x2epi8_epi16(Avx.mm256_loadu_si256(address), out v256 load1);
+                                address += 2;
+                                v256 load2 = Xse.mm256_cvt2x2epi8_epi16(Avx.mm256_loadu_si256(address), out v256 load3);
+                                address += 2;
+
+                                acc0 = Avx2.mm256_add_epi16(acc0, load0);
+                                acc1 = Avx2.mm256_add_epi16(acc1, load1);
+                                acc2 = Avx2.mm256_add_epi16(acc2, load2);
+                                acc3 = Avx2.mm256_add_epi16(acc3, load3);
+
+                                length -= 64;
                                 iterations++;
-                
-                                if (Hint.Unlikely((length = length - 64) < 64))
-                                {
-                                    break;
-                                }
-                                else continue;
                             }
-                
-                            v256 cast0 = Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(acc0)),
-                                                              Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(acc0, 1)));
-                            v256 cast1 = Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(acc1)),
-                                                              Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(acc1, 1)));
-                            v256 cast2 = Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(acc2)),
-                                                              Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(acc2, 1)));
-                            v256 cast3 = Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(acc3)),
-                                                              Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(acc3, 1)));
-                
-                            ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_add_epi32(Avx2.mm256_add_epi32(cast0, cast1),
-                                                                                   Avx2.mm256_add_epi32(cast2, cast3)));
+
+                            v256 ints0 = Xse.mm256_cvt2x2epi16_epi32(acc0, out v256 ints1);
+                            v256 ints2 = Xse.mm256_cvt2x2epi16_epi32(acc1, out v256 ints3);
+                            v256 ints4 = Xse.mm256_cvt2x2epi16_epi32(acc2, out v256 ints5);
+                            v256 ints6 = Xse.mm256_cvt2x2epi16_epi32(acc3, out v256 ints7);
+                            ints0 = Avx2.mm256_add_epi32(ints0, ints1);
+                            ints2 = Avx2.mm256_add_epi32(ints2, ints3);
+                            ints4 = Avx2.mm256_add_epi32(ints4, ints5);
+                            ints6 = Avx2.mm256_add_epi32(ints6, ints7);
+                            ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_add_epi32(Avx2.mm256_add_epi32(ints0, ints2), Avx2.mm256_add_epi32(ints4, ints6)));
                         }
-                        
+
+                        v128 csum_0 = Xse.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1));
+                        v128 csum_1 = Xse.vsum_epi32(csum_0);
+                        int sum = csum_1.SInt0;
+
+                        v128 shortSum;
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            v256 shorts = Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++));
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epi8_epi16(load, out v128 hi);
+                            shortSum = Xse.add_epi16(lo, hi);
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                            
+                                load = Xse.loadu_si128(address++);
+                                lo = Xse.cvt2x2epi8_epi16(load, out hi);
+                                shortSum = Xse.add_epi16(shortSum, Xse.add_epi16(lo, hi));
+
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
+                                    load = Xse.loadu_si128(address++);
+                                    lo = Xse.cvt2x2epi8_epi16(load, out hi);
+                                    shortSum = Xse.add_epi16(shortSum, Xse.add_epi16(lo, hi));
+
                                     length -= 3 * 16;
                                 }
                                 else
@@ -1000,253 +1113,158 @@ Assert.IsNonNegative(length);
                             {
                                 length -= 16;
                             }
-                            
-                            ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi16_epi32(Sse2.add_epi16(Avx.mm256_castsi256_si128(shorts), Avx2.mm256_extracti128_si256(shorts, 1))));
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 8))
-                        {
-                            ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi8_epi32(Sse2.cvtsi64x_si128(*(long*)address)));
-
-                            length -= 8;
-                            address = (v128*)((long*)address + 1);
-                        }
-                        else { }
-
-                        v128 csum_0 = Sse2.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1));
-
-                        if (Hint.Likely((int)length >= 4))
-                        {
-                            csum_0 = Sse2.add_epi32(csum_0, Sse4_1.cvtepi8_epi32(Sse2.cvtsi32_si128(*(int*)address)));
-
-                            length -= 4;
-                            address = (v128*)((int*)address + 1);
-                        }
-                        else { }
-
-                        v128 csum_1 = Sse2.add_epi32(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 3, 2)));
-
-                        if (Hint.Likely((int)length >= 2))
-                        {
-                            csum_1 = Sse2.add_epi32(csum_1, Sse4_1.cvtepi8_epi32(Sse2.cvtsi32_si128(*(ushort*)address)));
-
-                            length -= 2;
-                            address = (v128*)((ushort*)address + 1);
-                        }
-                        else { }
-
-                        v128 csum_2 = Sse2.add_epi32(csum_1, Sse2.shuffle_epi32(csum_1, Sse.SHUFFLE(0, 0, 0, 1)));
-                        int sum = csum_2.SInt0;
-
-                        if (Hint.Likely(length != 0))
-                        {
-                            sum += *(sbyte*)address;
-                        }
-                        else { }
-
-
-                        return sum;
-                    }
-                    else if (Sse2.IsSse2Supported)
-                    {
-                        v128* address = (v128*)ptr;
-                        v128 ints = default(v128);
-                        v128 ZERO = default(v128);
-                
-                
-                        while (Hint.Likely(length >= 32))
-                        {
-                            int iterations = 0;
-                            v128 acc0 = default(v128);
-                            v128 acc1 = default(v128);
-                            v128 acc2 = default(v128);
-                            v128 acc3 = default(v128);
-                
-                            while (Hint.Likely(iterations < short.MinValue / sbyte.MinValue))
-                            {
-                                v128 _0_15 = Sse2.loadu_si128(address++);
-                                v128 _16_31 = Sse2.loadu_si128(address++);
-
-                                if (Sse4_1.IsSse41Supported)
-                                {
-                                    acc0 = Sse2.add_epi16(acc0, Sse4_1.cvtepi8_epi16(_0_15));
-                                    acc1 = Sse2.add_epi16(acc1, Sse4_1.cvtepi8_epi16(Sse2.shuffle_epi32(_0_15, Sse.SHUFFLE(0, 0, 3, 2))));
-                                    acc2 = Sse2.add_epi16(acc2, Sse4_1.cvtepi8_epi16(_16_31));
-                                    acc3 = Sse2.add_epi16(acc3, Sse4_1.cvtepi8_epi16(Sse2.shuffle_epi32(_16_31, Sse.SHUFFLE(0, 0, 3, 2))));
-                                }
-                                else
-                                {
-                                    v128 sign_lo = Sse2.cmpgt_epi8(ZERO, _0_15);
-                                    v128 sign_hi = Sse2.cmpgt_epi8(ZERO, _16_31);
-
-                                    acc0 = Sse2.add_epi16(acc0, Sse2.unpacklo_epi8(_0_15, sign_lo));
-                                    acc1 = Sse2.add_epi16(acc1, Sse2.unpackhi_epi8(_0_15, sign_lo));
-                                    acc2 = Sse2.add_epi16(acc2, Sse2.unpacklo_epi8(_16_31, sign_hi));
-                                    acc3 = Sse2.add_epi16(acc3, Sse2.unpackhi_epi8(_16_31, sign_hi));
-                                }
-
-                
-                                iterations++;
-                
-                                if (Hint.Unlikely((length = length - 32) < 32))
-                                {
-                                    break;
-                                }
-                                else continue;
-                            }
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                v128 cast0 = Sse2.add_epi32(Sse4_1.cvtepi16_epi32(acc0),
-                                                            Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 cast1 = Sse2.add_epi32(Sse4_1.cvtepi16_epi32(acc1),
-                                                            Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(acc1, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 cast2 = Sse2.add_epi32(Sse4_1.cvtepi16_epi32(acc2),
-                                                            Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(acc2, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 cast3 = Sse2.add_epi32(Sse4_1.cvtepi16_epi32(acc3),
-                                                            Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(acc3, Sse.SHUFFLE(0, 0, 3, 2))));
-
-                                ints = Sse2.add_epi32(ints, Sse2.add_epi32(Sse2.add_epi32(cast0, cast1),
-                                                                           Sse2.add_epi32(cast2, cast3)));
-                            }
-                            else
-                            {
-                                v128 sign0 = Sse2.cmpgt_epi16(ZERO, acc0);
-                                v128 sign1 = Sse2.cmpgt_epi16(ZERO, acc1);
-                                v128 sign2 = Sse2.cmpgt_epi16(ZERO, acc2);
-                                v128 sign3 = Sse2.cmpgt_epi16(ZERO, acc3);
-
-                                v128 cast0 = Sse2.add_epi32(Sse2.unpacklo_epi16(acc0, sign0),
-                                                            Sse2.unpackhi_epi16(acc0, sign0));
-                                v128 cast1 = Sse2.add_epi32(Sse2.unpacklo_epi16(acc1, sign1),
-                                                            Sse2.unpackhi_epi16(acc1, sign1));
-                                v128 cast2 = Sse2.add_epi32(Sse2.unpacklo_epi16(acc2, sign2),
-                                                            Sse2.unpackhi_epi16(acc2, sign2));
-                                v128 cast3 = Sse2.add_epi32(Sse2.unpacklo_epi16(acc3, sign3),
-                                                            Sse2.unpackhi_epi16(acc3, sign3));
-
-                                ints = Sse2.add_epi32(ints, Sse2.add_epi32(Sse2.add_epi32(cast0, cast1),
-                                                                           Sse2.add_epi32(cast2, cast3)));
-                            }
-                        }
-                        
-
-                        v128 shorts;
-
-                        if (Hint.Likely((int)length >= 16))
-                        {
-                            v128 load = Sse2.loadu_si128(address++);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(Sse4_1.cvtepi8_epi16(load),
-                                                        Sse4_1.cvtepi8_epi16(Sse2.shuffle_epi32(load, Sse.SHUFFLE(0, 0, 3, 2))));
-                            }
-                            else
-                            {
-                                v128 sign8 = Sse2.cmpgt_epi8(ZERO, load);
-
-                                shorts = Sse2.add_epi16(Sse2.unpacklo_epi8(load, sign8),
-                                                        Sse2.unpackhi_epi8(load, sign8));
-                            }
-
-                            length -= 16;
-                        }
-                        else 
-                        {
-                            shorts = default(v128);
-                        }
-
-                        if (Hint.Likely((int)length >= 8))
-                        {
-                            v128 load = Sse2.cvtsi64x_si128(*(long*)address);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse4_1.cvtepi8_epi16(load));
-                            }
-                            else
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse2.unpacklo_epi8(load, Sse2.cmpgt_epi8(ZERO, load)));
-                            }
-
-                            address = (v128*)((long*)address + 1);
-                            length -= 8;
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 4))
-                        {
-                            v128 load = Sse2.cvtsi32_si128(*(int*)address);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse4_1.cvtepi8_epi16(load));
-                            }
-                            else
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse2.unpacklo_epi8(load, Sse2.cmpgt_epi8(ZERO, load)));
-                            }
-
-                            address = (v128*)((int*)address + 1);
-                            length -= 4;
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 2))
-                        {
-                            v128 load = Sse2.cvtsi32_si128(*(ushort*)address);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse4_1.cvtepi8_epi16(load));
-                            }
-                            else
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse2.unpacklo_epi8(load, Sse2.cmpgt_epi8(ZERO, load)));
-                            }
-
-                            address = (v128*)((ushort*)address + 1);
-                            length -= 2;
-                        }
-                        else { }
-
-                        if (Sse4_1.IsSse41Supported)
-                        {
-                            ints = Sse2.add_epi32(ints, Sse4_1.cvtepi16_epi32(Sse2.add_epi16(shorts,
-                                                                                             Sse2.shuffle_epi32(shorts, Sse.SHUFFLE(0, 0, 3, 2)))));
                         }
                         else
                         {
-                            shorts = Sse2.add_epi16(shorts,
-                                                    Sse2.shuffle_epi32(shorts, Sse.SHUFFLE(0, 0, 3, 2)));
-
-                            ints = Sse2.add_epi32(ints, Sse2.unpacklo_epi16(shorts, Sse2.cmpgt_epi16(ZERO, shorts)));
+                            shortSum = Xse.setzero_si128();
                         }
 
-                        v128 csum_0 = Sse2.add_epi32(ints, Sse2.shuffle_epi32(ints, Sse.SHUFFLE(0, 0, 3, 2)));
-                        v128 csum_1 = Sse2.add_epi32(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 0, 1)));
-                        int sum = csum_1.SInt0;
+                        if (Hint.Likely((int)length >= 8))
+                        {
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(Xse.cvtsi64x_si128(*(long*)address)));
+
+                            address = (v128*)((long*)address + 1);
+                            length -= 8;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shuffle_epi32(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(Xse.cvtsi32_si128(*(int*)address)));
+
+                            address = (v128*)((int*)address + 1);
+                            length -= 4;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(Xse.cvtsi32_si128(*(ushort*)address)));
+
+                            address = (v128*)((ushort*)address + 1);
+                            length -= 2;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += shortSum.SShort0;
 
                         if (Hint.Likely(length != 0))
                         {
                             sum += *(sbyte*)address;
                         }
-                        else { }
-                
-                
+
+                        return sum;
+                    }
+                    else if (BurstArchitecture.IsSIMDSupported)
+                    {
+                        v128* address = (v128*)ptr;
+                        v128 ints = Xse.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
+
+
+                        while (Hint.Likely(length >= 32))
+                        {
+                            int iterations_short = 0;
+                            v128 shorts0 = Xse.setzero_si128();
+                            v128 shorts1 = Xse.setzero_si128();
+                            v128 shorts2 = Xse.setzero_si128();
+                            v128 shorts3 = Xse.setzero_si128();
+
+                            while (Hint.Likely(iterations_short < short.MinValue / sbyte.MinValue
+                                 & length >= 32))
+                            {
+                                v128 load0 = Xse.cvt2x2epi8_epi16(Xse.loadu_si128(address++), out v128 load1);
+                                v128 load2 = Xse.cvt2x2epi8_epi16(Xse.loadu_si128(address++), out v128 load3);
+
+                                shorts0 = Xse.add_epi16(shorts0, load0);
+                                shorts1 = Xse.add_epi16(shorts1, load1);
+                                shorts2 = Xse.add_epi16(shorts2, load2);
+                                shorts3 = Xse.add_epi16(shorts3, load3);
+
+                                iterations_short++;
+                                length -= 32;
+                            }
+
+                            v128 ints0 = Xse.cvt2x2epi16_epi32(shorts0, out v128 ints1);
+                            v128 ints2 = Xse.cvt2x2epi16_epi32(shorts1, out v128 ints3);
+                            v128 ints4 = Xse.cvt2x2epi16_epi32(shorts2, out v128 ints5);
+                            v128 ints6 = Xse.cvt2x2epi16_epi32(shorts3, out v128 ints7);
+                            ints0 = Xse.add_epi32(ints0, ints1);
+                            ints2 = Xse.add_epi32(ints2, ints3);
+                            ints4 = Xse.add_epi32(ints4, ints5);
+                            ints6 = Xse.add_epi32(ints6, ints7);
+                            ints = Xse.add_epi32(ints, Xse.add_epi32(Xse.add_epi32(ints0, ints2), Xse.add_epi32(ints4, ints6)));
+                        }
+
+                        v128 csum = Xse.vsum_epi32(ints);
+                        int sum = csum.SInt0;
+                        v128 shortSum;
+
+                        if (Hint.Likely((int)length >= 16))
+                        {
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epi8_epi16(load, out v128 hi);
+                            shortSum = Xse.add_epi16(lo, hi);
+
+                            length -= 16;
+                        }
+                        else
+                        {
+                            shortSum = Xse.setzero_si128();
+                        }
+
+                        if (Hint.Likely((int)length >= 8))
+                        {
+                            v128 load = Xse.cvtsi64x_si128(*(long*)address);
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(load));
+
+                            address = (v128*)((long*)address + 1);
+                            length -= 8;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shuffle_epi32(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            v128 load = Xse.cvtsi32_si128(*(int*)address);
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(load));
+
+                            address = (v128*)((int*)address + 1);
+                            length -= 4;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            v128 load = Xse.cvtsi32_si128(*(ushort*)address);
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(load));
+
+                            address = (v128*)((ushort*)address + 1);
+                            length -= 2;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += shortSum.SShort0;
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            sum += *(sbyte*)address;
+                        }
+
                         return sum;
                     }
                     else
                     {
                         int sum = 0;
-                
+
                         for (long i = 0; i < length; i++)
                         {
                             sum += ptr[i];
                         }
-                
+
                         return sum;
                     }
                 }
@@ -1255,85 +1273,68 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v128* address = (v128*)ptr;
-                        v256 longs = default(v256);
+                        v256 longs = Avx.mm256_setzero_si256();
 
                         while (Hint.Likely(length >= 64))
                         {
-                            int iterations_int = 0;
-                            v256 ints0 = default(v256);
-                            v256 ints1 = default(v256);
-                            v256 ints2 = default(v256);
-                            v256 ints3 = default(v256);
+                            int iterations_short = 0;
+                            v256 shorts0 = Avx.mm256_setzero_si256();
+                            v256 shorts1 = Avx.mm256_setzero_si256();
+                            v256 shorts2 = Avx.mm256_setzero_si256();
+                            v256 shorts3 = Avx.mm256_setzero_si256();
 
-                            while (Hint.Likely(iterations_int < int.MinValue / short.MinValue))
+                            while (Hint.Likely(iterations_short < short.MinValue / sbyte.MinValue
+                                 & length >= 64))
                             {
-                                int iterations_short = 0;
-                                v256 shorts0 = default(v256);
-                                v256 shorts1 = default(v256);
-                                v256 shorts2 = default(v256);
-                                v256 shorts3 = default(v256);
+                                v256 load0 = Xse.mm256_cvt2x2epi8_epi16(Avx.mm256_loadu_si256(address), out v256 load1);
+                                address += 2;
+                                v256 load2 = Xse.mm256_cvt2x2epi8_epi16(Avx.mm256_loadu_si256(address), out v256 load3);
+                                address += 2;
 
-                                while (Hint.Likely(iterations_short < short.MinValue / sbyte.MinValue))
-                                {
-                                    shorts0 = Avx2.mm256_add_epi16(shorts0, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                    shorts1 = Avx2.mm256_add_epi16(shorts1, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                    shorts2 = Avx2.mm256_add_epi16(shorts2, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
-                                    shorts3 = Avx2.mm256_add_epi16(shorts3, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
+                                shorts0 = Avx2.mm256_add_epi16(shorts0, load0);
+                                shorts1 = Avx2.mm256_add_epi16(shorts1, load1);
+                                shorts2 = Avx2.mm256_add_epi16(shorts2, load2);
+                                shorts3 = Avx2.mm256_add_epi16(shorts3, load3);
 
-                                    iterations_short++;
-
-                                    if (Hint.Unlikely((length = length - 64) < 64))
-                                    {
-                                        break;
-                                    }
-                                    else continue;
-                                }
-
-                                ints0 = Avx2.mm256_add_epi32(ints0, Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(shorts0)),
-                                                                                         Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(shorts0, 1))));
-                                ints1 = Avx2.mm256_add_epi32(ints1, Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(shorts1)),
-                                                                                         Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(shorts1, 1))));
-                                ints2 = Avx2.mm256_add_epi32(ints2, Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(shorts2)),
-                                                                                         Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(shorts2, 1))));
-                                ints3 = Avx2.mm256_add_epi32(ints3, Avx2.mm256_add_epi32(Avx2.mm256_cvtepi16_epi32(Avx.mm256_castsi256_si128(shorts3)),
-                                                                                         Avx2.mm256_cvtepi16_epi32(Avx2.mm256_extracti128_si256(shorts3, 1))));
-
-                                iterations_int++;
-
-                                if (Hint.Unlikely(length < 64))
-                                {
-                                    break;
-                                }
-                                else continue;
+                                iterations_short++;
+                                length -= 64;
                             }
 
-                            v256 add0 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(ints0)),
-                                                             Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(ints0, 1)));
-                            v256 add1 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(ints1)),
-                                                             Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(ints1, 1)));
-                            v256 add2 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(ints2)),
-                                                             Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(ints2, 1)));
-                            v256 add3 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(ints3)),
-                                                             Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(ints3, 1)));
-
-                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(add0, add1),
-                                                                                     Avx2.mm256_add_epi64(add2, add3)));
+                            Xse.mm256_cvt4x4epi16_epi64(shorts0, out v256 longs0,  out v256 longs1,  out v256 longs2,  out v256 longs3);
+                            Xse.mm256_cvt4x4epi16_epi64(shorts1, out v256 longs4,  out v256 longs5,  out v256 longs6,  out v256 longs7);
+                            Xse.mm256_cvt4x4epi16_epi64(shorts2, out v256 longs8,  out v256 longs9,  out v256 longs10, out v256 longs11);
+                            Xse.mm256_cvt4x4epi16_epi64(shorts3, out v256 longs12, out v256 longs13, out v256 longs14, out v256 longs15);
+                            longs0  = Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(longs0,  longs1),  Avx2.mm256_add_epi64(longs2,  longs3));
+                            longs4  = Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(longs4,  longs5),  Avx2.mm256_add_epi64(longs6,  longs7));
+                            longs8  = Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(longs8,  longs9),  Avx2.mm256_add_epi64(longs10, longs11));
+                            longs12 = Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(longs12, longs13), Avx2.mm256_add_epi64(longs14, longs15));
+                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(longs0, longs4), Avx2.mm256_add_epi64(longs8, longs12)));
                         }
 
+                        v128 csum_0 = Xse.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
+                        v128 csum_1 = Xse.vsum_epi64(csum_0);
+                        long sum = csum_1.SLong0;
 
                         v128 shortSum;
 
                         if (Hint.Likely((int)length >= 16))
                         {
-                            v256 shorts = Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++));
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epi8_epi16(load, out v128 hi);
+                            shortSum = Xse.add_epi16(lo, hi);
 
                             if (Hint.Likely((int)length >= 2 * 16))
                             {
-                                shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
+                                load = Xse.loadu_si128(address++);
+                                lo = Xse.cvt2x2epi8_epi16(load, out hi);
+                                shortSum = Xse.add_epi16(shortSum, Xse.add_epi16(lo, hi));
 
                                 if (Hint.Likely((int)length >= 3 * 16))
                                 {
-                                    shorts = Avx2.mm256_add_epi16(shorts, Avx2.mm256_cvtepi8_epi16(Sse2.loadu_si128(address++)));
+                                    load = Xse.loadu_si128(address++);
+                                    lo = Xse.cvt2x2epi8_epi16(load, out hi);
+                                    shortSum = Xse.add_epi16(shortSum, Xse.add_epi16(lo, hi));
+
                                     length -= 3 * 16;
                                 }
                                 else
@@ -1345,290 +1346,146 @@ Assert.IsNonNegative(length);
                             {
                                 length -= 16;
                             }
-
-                            shortSum = Sse2.add_epi16(Avx.mm256_castsi256_si128(shorts), Avx2.mm256_extracti128_si256(shorts, 1));
-                        }
-                        else 
-                        {
-                            shortSum = default(v128);
-                        }
-
-                        if (Hint.Likely((int)length >= 8))
-                        {
-                            shortSum = Sse2.add_epi16(shortSum, Sse4_1.cvtepi8_epi16(Sse2.cvtsi64x_si128(*(long*)address)));
-
-                            address = (v128*)((long*)address + 1);
-                            length -= 8;
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 4))
-                        {
-                            shortSum = Sse2.add_epi16(shortSum, Sse4_1.cvtepi8_epi16(Sse2.cvtsi32_si128(*(int*)address)));
-
-                            address = (v128*)((int*)address + 1);
-                            length -= 4;
-                        }
-                        else { }
-
-                        if (Hint.Likely((int)length >= 2))
-                        {
-                            shortSum = Sse2.add_epi16(shortSum, Sse4_1.cvtepi8_epi16(Sse2.cvtsi32_si128(*(ushort*)address)));
-
-                            address = (v128*)((ushort*)address + 1);
-                            length -= 2;
-                        }
-                        else { }
-
-                        shortSum = Sse2.add_epi16(shortSum, Sse2.shuffle_epi32(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
-                        longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepi16_epi64(shortSum));
-
-                        v128 csum_0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
-                        v128 csum_1 = Sse2.add_epi64(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 3, 2)));
-                        long sum = csum_1.SLong0;
-
-
-                        if (Hint.Likely(length != 0))
-                        {
-                            sum += *(sbyte*)address;
-                        }
-                        else { }
-                        
-                        
-                        return sum;
-                    }
-                    else if (Sse2.IsSse2Supported)
-                    {
-                        v128* address = (v128*)ptr;
-                        v128 longs = default(v128);
-                        v128 ZERO = default(v128);
-
-                        while (Hint.Likely(length >= 32))
-                        {
-                            int iterations_int = 0;
-                            v128 ints0 = default(v128);
-                            v128 ints1 = default(v128);
-                            v128 ints2 = default(v128);
-                            v128 ints3 = default(v128);
-
-                            while (Hint.Likely(iterations_int < int.MinValue / short.MinValue))
-                            {
-                                int iterations_short = 0;
-                                v128 shorts0 = default(v128);
-                                v128 shorts1 = default(v128);
-                                v128 shorts2 = default(v128);
-                                v128 shorts3 = default(v128);
-
-                                while (Hint.Likely(iterations_short < short.MinValue / sbyte.MinValue))
-                                {
-                                    v128 _0_15 = Sse2.loadu_si128(address++);
-                                    v128 _16_31 = Sse2.loadu_si128(address++);
-
-                                    if (Sse4_1.IsSse41Supported)
-                                    {
-                                        shorts0 = Sse2.add_epi16(shorts0, Sse4_1.cvtepi8_epi16(_0_15));
-                                        shorts1 = Sse2.add_epi16(shorts1, Sse4_1.cvtepi8_epi16(Sse2.shuffle_epi32(_0_15, Sse.SHUFFLE(0, 0, 3, 2))));
-                                        shorts2 = Sse2.add_epi16(shorts2, Sse4_1.cvtepi8_epi16(_16_31));
-                                        shorts3 = Sse2.add_epi16(shorts3, Sse4_1.cvtepi8_epi16(Sse2.shuffle_epi32(_16_31, Sse.SHUFFLE(0, 0, 3, 2))));
-                                    }
-                                    else
-                                    {
-                                        v128 sign_lo = Sse2.cmpgt_epi8(ZERO, _0_15);
-                                        v128 sign_hi = Sse2.cmpgt_epi8(ZERO, _16_31);
-
-                                        shorts0 = Sse2.add_epi16(shorts0, Sse2.unpacklo_epi8(_0_15, sign_lo));
-                                        shorts1 = Sse2.add_epi16(shorts1, Sse2.unpackhi_epi8(_0_15, sign_lo));
-                                        shorts2 = Sse2.add_epi16(shorts2, Sse2.unpacklo_epi8(_16_31, sign_hi));
-                                        shorts3 = Sse2.add_epi16(shorts3, Sse2.unpackhi_epi8(_16_31, sign_hi));
-                                    }
-
-                                    iterations_short++;
-
-                                    if (Hint.Unlikely((length = length - 32) < 32))
-                                    {
-                                        break;
-                                    }
-                                    else continue;
-                                }
-
-                                if (Sse4_1.IsSse41Supported)
-                                {
-                                    ints0 = Sse2.add_epi32(ints0, Sse2.add_epi32(Sse4_1.cvtepi16_epi32(shorts0),
-                                                                                 Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(shorts0, Sse.SHUFFLE(0, 0, 3, 2)))));
-                                    ints1 = Sse2.add_epi32(ints1, Sse2.add_epi32(Sse4_1.cvtepi16_epi32(shorts1),
-                                                                                 Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(shorts1, Sse.SHUFFLE(0, 0, 3, 2)))));
-                                    ints2 = Sse2.add_epi32(ints2, Sse2.add_epi32(Sse4_1.cvtepi16_epi32(shorts2),
-                                                                                 Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(shorts2, Sse.SHUFFLE(0, 0, 3, 2)))));
-                                    ints3 = Sse2.add_epi32(ints3, Sse2.add_epi32(Sse4_1.cvtepi16_epi32(shorts3),
-                                                                                 Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(shorts3, Sse.SHUFFLE(0, 0, 3, 2)))));
-                                }
-                                else
-                                {
-                                    v128 sign0 = Sse2.cmpgt_epi16(ZERO, shorts0);
-                                    v128 sign1 = Sse2.cmpgt_epi16(ZERO, shorts1);
-                                    v128 sign2 = Sse2.cmpgt_epi16(ZERO, shorts2);
-                                    v128 sign3 = Sse2.cmpgt_epi16(ZERO, shorts3);
-
-                                    ints0 = Sse2.add_epi32(ints0, Sse2.add_epi32(Sse2.unpacklo_epi16(shorts0, sign0),
-                                                                                 Sse2.unpackhi_epi16(shorts0, sign0)));
-                                    ints1 = Sse2.add_epi32(ints1, Sse2.add_epi32(Sse2.unpacklo_epi16(shorts1, sign1),
-                                                                                 Sse2.unpackhi_epi16(shorts1, sign1)));
-                                    ints2 = Sse2.add_epi32(ints2, Sse2.add_epi32(Sse2.unpacklo_epi16(shorts2, sign2),
-                                                                                 Sse2.unpackhi_epi16(shorts2, sign2)));
-                                    ints3 = Sse2.add_epi32(ints3, Sse2.add_epi32(Sse2.unpacklo_epi16(shorts3, sign3),
-                                                                                 Sse2.unpackhi_epi16(shorts3, sign3)));
-                                }
-
-                                iterations_int++;
-
-                                if (Hint.Unlikely(length < 32))
-                                {
-                                    break;
-                                }
-                                else continue;
-                            }
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                v128 add0 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(ints0),
-                                                           Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(ints0, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 add1 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(ints1),
-                                                           Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(ints1, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 add2 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(ints2),
-                                                           Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(ints2, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 add3 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(ints3),
-                                                           Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(ints3, Sse.SHUFFLE(0, 0, 3, 2))));
-
-                                longs = Sse2.add_epi64(longs, Sse2.add_epi64(Sse2.add_epi64(add0, add1),
-                                                                             Sse2.add_epi64(add2, add3)));
-                            }
-                            else
-                            {
-                                v128 sign0 = Sse2.cmpgt_epi32(ZERO, ints0);
-                                v128 sign1 = Sse2.cmpgt_epi32(ZERO, ints1);
-                                v128 sign2 = Sse2.cmpgt_epi32(ZERO, ints2);
-                                v128 sign3 = Sse2.cmpgt_epi32(ZERO, ints3);
-
-                                v128 add0 = Sse2.add_epi64(Sse2.unpacklo_epi32(ints0, sign0),
-                                                           Sse2.unpackhi_epi32(ints0, sign0));
-                                v128 add1 = Sse2.add_epi64(Sse2.unpacklo_epi32(ints1, sign1),
-                                                           Sse2.unpackhi_epi32(ints1, sign1));
-                                v128 add2 = Sse2.add_epi64(Sse2.unpacklo_epi32(ints2, sign2),
-                                                           Sse2.unpackhi_epi32(ints2, sign2));
-                                v128 add3 = Sse2.add_epi64(Sse2.unpacklo_epi32(ints3, sign3),
-                                                           Sse2.unpackhi_epi32(ints3, sign3));
-
-                                longs = Sse2.add_epi64(longs, Sse2.add_epi64(Sse2.add_epi64(add0, add1),
-                                                                             Sse2.add_epi64(add2, add3)));
-                            }
-                        }
-
-
-                        v128 shorts;
-
-                        if (Hint.Likely((int)length >= 16))
-                        {
-                            v128 load = Sse2.loadu_si128(address++);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(Sse4_1.cvtepi8_epi16(load),
-                                                        Sse4_1.cvtepi8_epi16(Sse2.shuffle_epi32(load, Sse.SHUFFLE(0, 0, 3, 2))));
-                            }
-                            else
-                            {
-                                v128 sign8 = Sse2.cmpgt_epi8(ZERO, load);
-                                shorts = Sse2.add_epi16(Sse2.unpacklo_epi8(load, sign8),
-                                                        Sse2.unpackhi_epi8(load, sign8));
-                            }
-
-                            length -= 16;
-                        }
-                        else 
-                        {
-                            shorts = default(v128);
-                        }
-
-                        if (Hint.Likely((int)length >= 8))
-                        {
-                            v128 load = Sse2.cvtsi64x_si128(*(long*)address);
-                        
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse4_1.cvtepi8_epi16(load));
-                            }
-                            else
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse2.unpacklo_epi8(load, Sse2.cmpgt_epi8(ZERO, load)));
-                            }
-                        
-                            length -= 8;
-                            address = (v128*)((long*)address + 1);
-                        }
-                        else { }
-                        
-                        if (Hint.Likely((int)length >= 4))
-                        {
-                            v128 load = Sse2.cvtsi32_si128(*(int*)address);
-                        
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse4_1.cvtepi8_epi16(load));
-                            }
-                            else
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse2.unpacklo_epi8(load, Sse2.cmpgt_epi8(ZERO, load)));
-                            }
-                        
-                            length -= 4;
-                            address = (v128*)((int*)address + 1);
-                        }
-                        else { }
-                        
-                        if (Hint.Likely((int)length >= 2))
-                        {
-                            v128 load = Sse2.cvtsi32_si128(*(ushort*)address);
-                        
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse4_1.cvtepi8_epi16(load));
-                            }
-                            else
-                            {
-                                shorts = Sse2.add_epi16(shorts, Sse2.unpacklo_epi8(load, Sse2.cmpgt_epi8(ZERO, load)));
-                            }
-                        
-                            length -= 2;
-                            address = (v128*)((ushort*)address + 1);
-                        }
-                        else { }
-                        
-                        if (Sse4_1.IsSse41Supported)
-                        {
-                            v128 shortSum = Sse2.add_epi16(shorts, Sse2.shuffle_epi32(shorts, Sse.SHUFFLE(0, 0, 3, 2)));
-                            shortSum = Sse2.add_epi16(shortSum, Sse2.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
-                            longs = Sse2.add_epi64(longs, Sse4_1.cvtepi16_epi64(shortSum));
                         }
                         else
                         {
-                            v128 shortSum = Sse2.add_epi16(shorts, Sse2.shuffle_epi32(shorts, Sse.SHUFFLE(0, 0, 3, 2)));
-                            shortSum = Sse2.add_epi16(shortSum, Sse2.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
-                        
-                            v128 sign16 = Sse2.cmpgt_epi16(ZERO, shortSum);
-                            v128 ints = Sse2.unpacklo_epi16(shortSum, sign16);
-                        
-                            sign16 = Sse2.unpacklo_epi16(sign16, sign16);
-                            longs = Sse2.add_epi64(longs, Sse2.unpacklo_epi32(ints, sign16));
+                            shortSum = Xse.setzero_si128();
                         }
 
-                        v128 csum_0 = Sse2.add_epi64(longs, Sse2.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
-                        long sum = csum_0.SLong0;
+                        if (Hint.Likely((int)length >= 8))
+                        {
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(Xse.cvtsi64x_si128(*(long*)address)));
+
+                            address = (v128*)((long*)address + 1);
+                            length -= 8;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shuffle_epi32(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(Xse.cvtsi32_si128(*(int*)address)));
+
+                            address = (v128*)((int*)address + 1);
+                            length -= 4;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(Xse.cvtsi32_si128(*(ushort*)address)));
+
+                            address = (v128*)((ushort*)address + 1);
+                            length -= 2;
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += shortSum.SShort0;
+
 
                         if (Hint.Likely(length != 0))
                         {
                             sum += *(sbyte*)address;
                         }
 
+                        return sum;
+                    }
+                    else if (BurstArchitecture.IsSIMDSupported)
+                    {
+                        v128* address = (v128*)ptr;
+                        v128 longs = Xse.setzero_si128();
+
+                        while (Hint.Likely(length >= 32))
+                        {
+                            int iterations_short = 0;
+                            v128 shorts0 = Xse.setzero_si128();
+                            v128 shorts1 = Xse.setzero_si128();
+                            v128 shorts2 = Xse.setzero_si128();
+                            v128 shorts3 = Xse.setzero_si128();
+
+                            while (Hint.Likely(iterations_short < short.MinValue / sbyte.MinValue
+                                 & length >= 32))
+                            {
+                                v128 load0 = Xse.cvt2x2epi8_epi16(Xse.loadu_si128(address++), out v128 load1);
+                                v128 load2 = Xse.cvt2x2epi8_epi16(Xse.loadu_si128(address++), out v128 load3);
+
+                                shorts0 = Xse.add_epi16(shorts0, load0);
+                                shorts1 = Xse.add_epi16(shorts1, load1);
+                                shorts2 = Xse.add_epi16(shorts2, load2);
+                                shorts3 = Xse.add_epi16(shorts3, load3);
+
+                                iterations_short++;
+                                length -= 32;
+                            }
+
+                            Xse.cvt4x4epi16_epi64(shorts0, out v128 longs0,  out v128 longs1,  out v128 longs2,  out v128 longs3);
+                            Xse.cvt4x4epi16_epi64(shorts1, out v128 longs4,  out v128 longs5,  out v128 longs6,  out v128 longs7);
+                            Xse.cvt4x4epi16_epi64(shorts2, out v128 longs8,  out v128 longs9,  out v128 longs10, out v128 longs11);
+                            Xse.cvt4x4epi16_epi64(shorts3, out v128 longs12, out v128 longs13, out v128 longs14, out v128 longs15);
+                            longs0  = Xse.add_epi64(Xse.add_epi64(longs0,  longs1),  Xse.add_epi64(longs2,  longs3));
+                            longs4  = Xse.add_epi64(Xse.add_epi64(longs4,  longs5),  Xse.add_epi64(longs6,  longs7));
+                            longs8  = Xse.add_epi64(Xse.add_epi64(longs8,  longs9),  Xse.add_epi64(longs10, longs11));
+                            longs12 = Xse.add_epi64(Xse.add_epi64(longs12, longs13), Xse.add_epi64(longs14, longs15));
+                            longs = Xse.add_epi64(longs, Xse.add_epi64(Xse.add_epi64(longs0, longs4), Xse.add_epi64(longs8, longs12)));
+                        }
+
+                        v128 csum_0 = Xse.vsum_epi64(longs);
+                        long sum = csum_0.SLong0;
+                        v128 shortSum;
+
+                        if (Hint.Likely((int)length >= 16))
+                        {
+                            v128 load = Xse.loadu_si128(address++);
+
+                            v128 lo = Xse.cvt2x2epi8_epi16(load, out v128 hi);
+                            shortSum = Xse.add_epi16(lo, hi);
+
+                            length -= 16;
+                        }
+                        else
+                        {
+                            shortSum = Xse.setzero_si128();
+                        }
+
+                        if (Hint.Likely((int)length >= 8))
+                        {
+                            v128 load = Xse.cvtsi64x_si128(*(long*)address);
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(load));
+
+                            length -= 8;
+                            address = (v128*)((long*)address + 1);
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shuffle_epi32(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 4))
+                        {
+                            v128 load = Xse.cvtsi32_si128(*(int*)address);
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(load));
+
+                            length -= 4;
+                            address = (v128*)((int*)address + 1);
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 3, 2)));
+
+                        if (Hint.Likely((int)length >= 2))
+                        {
+                            v128 load = Xse.cvtsi32_si128(*(ushort*)address);
+                            shortSum = Xse.add_epi16(shortSum, Xse.cvtepi8_epi16(load));
+
+                            length -= 2;
+                            address = (v128*)((ushort*)address + 1);
+                        }
+
+                        shortSum = Xse.add_epi16(shortSum, Xse.shufflelo_epi16(shortSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += shortSum.SShort0;
+
+                        if (Hint.Likely(length != 0))
+                        {
+                            sum += *(sbyte*)address;
+                        }
 
                         return sum;
                     }
@@ -1672,7 +1529,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -1694,7 +1551,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -1716,7 +1573,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<sbyte> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((sbyte*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -1758,58 +1615,69 @@ Assert.IsNonNegative(length);
                     if (Avx2.IsAvx2Supported)
                     {
                         v128* address = (v128*)ptr;
-                        v256 longs = default(v256);
-                        
-                        
+                        v256 longs = Avx.mm256_setzero_si256();
+
                         while (Hint.Likely(length >= 32))
                         {
                             int iterations = 0;
-                            v256 acc0 = default(v256);
-                            v256 acc1 = default(v256);
-                            v256 acc2 = default(v256);
-                            v256 acc3 = default(v256);
-                        
-                            while (Hint.Likely(iterations < int.MinValue / short.MinValue))
+                            v256 acc0 = Avx.mm256_setzero_si256();
+                            v256 acc1 = Avx.mm256_setzero_si256();
+                            v256 acc2 = Avx.mm256_setzero_si256();
+                            v256 acc3 = Avx.mm256_setzero_si256();
+
+                            while (Hint.Likely(iterations < uint.MaxValue / ushort.MaxValue
+                                & length >= 32))
                             {
-                                acc0 = Avx2.mm256_add_epi32(acc0, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
-                                acc1 = Avx2.mm256_add_epi32(acc1, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
-                                acc2 = Avx2.mm256_add_epi32(acc2, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
-                                acc3 = Avx2.mm256_add_epi32(acc3, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
-                        
+                                v256 load0 = Xse.mm256_cvt2x2epi16_epi32(Avx.mm256_loadu_si256(address), out v256 load1);
+                                address += 2;
+                                v256 load2 = Xse.mm256_cvt2x2epi16_epi32(Avx.mm256_loadu_si256(address), out v256 load3);
+                                address += 2;
+
+                                acc0 = Avx2.mm256_add_epi32(acc0, load0);
+                                acc1 = Avx2.mm256_add_epi32(acc1, load1);
+                                acc2 = Avx2.mm256_add_epi32(acc2, load2);
+                                acc3 = Avx2.mm256_add_epi32(acc3, load3);
+
+                                length -= 32;
                                 iterations++;
-                        
-                                if (Hint.Unlikely((length = length - 32) < 32))
-                                {
-                                    break;
-                                }
-                                else continue;
                             }
-                        
-                            v256 cast0 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(acc0)),
-                                                              Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(acc0, 1)));
-                            v256 cast1 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(acc1)),
-                                                              Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(acc1, 1)));
-                            v256 cast2 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(acc2)),
-                                                              Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(acc2, 1)));
-                            v256 cast3 = Avx2.mm256_add_epi64(Avx2.mm256_cvtepi32_epi64(Avx.mm256_castsi256_si128(acc3)),
-                                                              Avx2.mm256_cvtepi32_epi64(Avx2.mm256_extracti128_si256(acc3, 1)));
-                        
-                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(cast0, cast1),
-                                                                                     Avx2.mm256_add_epi64(cast2, cast3)));
+
+                            v256 cast = Xse.mm256_cvt2x2epi32_epi64(acc0, out acc0);
+                            acc0 = Avx2.mm256_add_epi64(cast, acc0);
+                            cast = Xse.mm256_cvt2x2epi32_epi64(acc1, out acc1);
+                            acc1 = Avx2.mm256_add_epi64(cast, acc1);
+                            cast = Xse.mm256_cvt2x2epi32_epi64(acc2, out acc2);
+                            acc2 = Avx2.mm256_add_epi64(cast, acc2);
+                            cast = Xse.mm256_cvt2x2epi32_epi64(acc3, out acc3);
+                            acc3 = Avx2.mm256_add_epi64(cast, acc3);
+
+                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_add_epi64(Avx2.mm256_add_epi64(acc0, acc1), Avx2.mm256_add_epi64(acc2, acc3)));
                         }
 
+                        v128 csum_0 = Xse.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
+                        v128 csum_1 = Xse.vsum_epi64(csum_0);
+                        long sum = csum_1.SLong0;
+
+                        v128 intSum;
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            v256 ints = Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++));
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epi16_epi32(load, out v128 hi);
+                            intSum = Xse.add_epi32(lo, hi);
 
                             if (Hint.Likely((int)length >= 2 * 8))
                             {
-                                ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
+                                load = Xse.loadu_si128(address++);
+                                lo = Xse.cvt2x2epi16_epi32(load, out hi);
+                                intSum = Xse.add_epi32(intSum, Xse.add_epi32(lo, hi));
 
                                 if (Hint.Likely((int)length >= 3 * 8))
                                 {
-                                    ints = Avx2.mm256_add_epi32(ints, Avx2.mm256_cvtepi16_epi32(Sse2.loadu_si128(address++)));
+                                    load = Xse.loadu_si128(address++);
+                                    lo = Xse.cvt2x2epi16_epi32(load, out hi);
+                                    intSum = Xse.add_epi32(intSum, Xse.add_epi32(lo, hi));
+
                                     length -= 3 * 8;
                                 }
                                 else
@@ -1821,214 +1689,123 @@ Assert.IsNonNegative(length);
                             {
                                 length -= 8;
                             }
-
-                            v128 intSum = Sse2.add_epi32(Avx.mm256_castsi256_si128(ints), Avx2.mm256_extracti128_si256(ints, 1));
-                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepi32_epi64(intSum));
                         }
-                        else { }
+                        else
+                        {
+                            intSum = Xse.setzero_si128();
+                        }
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            longs = Avx2.mm256_add_epi64(longs, Avx2.mm256_cvtepi16_epi64(Sse2.cvtsi64x_si128(*(long*)address)));
-
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepi16_epi32(Xse.cvtsi64x_si128(*(long*)address)));
                             length -= 4;
                             address = (v128*)((long*)address + 1);
                         }
-                        else { }
 
-                        v128 csum_0 = Sse2.add_epi64(Avx.mm256_castsi256_si128(longs), Avx2.mm256_extracti128_si256(longs, 1));
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            csum_0 = Sse2.add_epi64(csum_0, Sse4_1.cvtepi16_epi64(Sse2.cvtsi32_si128(*(int*)address)));
-
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepi16_epi32(Xse.cvtsi32_si128(*(int*)address)));
                             length -= 2;
                             address = (v128*)((int*)address + 1);
                         }
-                        else { }
 
-                        v128 csum_1 = Sse2.add_epi64(csum_0, Sse2.shuffle_epi32(csum_0, Sse.SHUFFLE(0, 0, 3, 2)));
-                        long sum = csum_1.SLong0;
-
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += intSum.SInt0;
 
                         if (Hint.Likely(length != 0))
                         {
                             sum += *(short*)address;
                         }
-                        else { }
-                        
-                        
+
                         return sum;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
                         v128* address = (v128*)ptr;
-                        v128 longs = default(v128);
-                        v128 ZERO = default(v128);
-                        
-                        
+                        v128 longs = Xse.setzero_si128();
+                        v128 ZERO = Xse.setzero_si128();
+
                         while (Hint.Likely(length >= 16))
                         {
                             int iterations = 0;
-                            v128 acc0 = default(v128);
-                            v128 acc1 = default(v128);
-                            v128 acc2 = default(v128);
-                            v128 acc3 = default(v128);
-                        
-                            while (Hint.Likely(iterations < int.MinValue / short.MinValue))
+                            v128 acc0 = Xse.setzero_si128();
+                            v128 acc1 = Xse.setzero_si128();
+                            v128 acc2 = Xse.setzero_si128();
+                            v128 acc3 = Xse.setzero_si128();
+
+                            while (Hint.Likely(iterations < uint.MaxValue / ushort.MaxValue
+                                 & length >= 16))
                             {
-                                v128 _0_7 = Sse2.loadu_si128(address++);
-                                v128 _8_15 = Sse2.loadu_si128(address++);
+                                v128 load0 = Xse.cvt2x2epi16_epi32(Xse.loadu_si128(address++), out v128 load1);
+                                v128 load2 = Xse.cvt2x2epi16_epi32(Xse.loadu_si128(address++), out v128 load3);
 
-                                if (Sse4_1.IsSse41Supported)
-                                {
-                                    acc0 = Sse2.add_epi32(acc0, Sse4_1.cvtepi16_epi32(_0_7));
-                                    acc1 = Sse2.add_epi32(acc1, Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(_0_7, Sse.SHUFFLE(0, 0, 3, 2))));
-                                    acc2 = Sse2.add_epi32(acc2, Sse4_1.cvtepi16_epi32(_8_15));
-                                    acc3 = Sse2.add_epi32(acc3, Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(_8_15, Sse.SHUFFLE(0, 0, 3, 2))));
-                                }
-                                else
-                                {
-                                    v128 sign_lo = Sse2.cmpgt_epi16(ZERO, _0_7);
-                                    v128 sign_hi = Sse2.cmpgt_epi16(ZERO, _8_15);
+                                acc0 = Xse.add_epi32(acc0, load0);
+                                acc1 = Xse.add_epi32(acc1, load1);
+                                acc2 = Xse.add_epi32(acc2, load2);
+                                acc3 = Xse.add_epi32(acc3, load3);
 
-                                    acc0 = Sse2.add_epi32(acc0, Sse2.unpacklo_epi16(_0_7, sign_lo));
-                                    acc1 = Sse2.add_epi32(acc1, Sse2.unpackhi_epi16(_0_7, sign_lo));
-                                    acc2 = Sse2.add_epi32(acc2, Sse2.unpacklo_epi16(_8_15, sign_hi));
-                                    acc3 = Sse2.add_epi32(acc3, Sse2.unpackhi_epi16(_8_15, sign_hi));
-                                }
-                        
+                                length -= 16;
                                 iterations++;
-                        
-                                if (Hint.Unlikely((length = length - 16) < 16))
-                                {
-                                    break;
-                                }
-                                else continue;
                             }
 
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                v128 cast0 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(acc0),
-                                                            Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(acc0, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 cast1 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(acc1),
-                                                            Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(acc1, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 cast2 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(acc2),
-                                                            Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(acc2, Sse.SHUFFLE(0, 0, 3, 2))));
-                                v128 cast3 = Sse2.add_epi64(Sse4_1.cvtepi32_epi64(acc3),
-                                                            Sse4_1.cvtepi32_epi64(Sse2.shuffle_epi32(acc3, Sse.SHUFFLE(0, 0, 3, 2))));
+                            v128 cast = Xse.cvt2x2epi32_epi64(acc0, out acc0);
+                            acc0 = Xse.add_epi64(cast, acc0);
+                            cast = Xse.cvt2x2epi32_epi64(acc1, out acc1);
+                            acc1 = Xse.add_epi64(cast, acc1);
+                            cast = Xse.cvt2x2epi32_epi64(acc2, out acc2);
+                            acc2 = Xse.add_epi64(cast, acc2);
+                            cast = Xse.cvt2x2epi32_epi64(acc3, out acc3);
+                            acc3 = Xse.add_epi64(cast, acc3);
 
-                                longs = Sse2.add_epi64(longs, Sse2.add_epi64(Sse2.add_epi64(cast0, cast1),
-                                                                             Sse2.add_epi64(cast2, cast3)));
-                            }
-                            else
-                            {
-                                v128 sign0 = Sse2.cmpgt_epi32(ZERO, acc0);
-                                v128 sign1 = Sse2.cmpgt_epi32(ZERO, acc1);
-                                v128 sign2 = Sse2.cmpgt_epi32(ZERO, acc2);
-                                v128 sign3 = Sse2.cmpgt_epi32(ZERO, acc3);
-
-                                v128 cast0 = Sse2.add_epi64(Sse2.unpacklo_epi32(acc0, sign0),
-                                                            Sse2.unpackhi_epi32(acc0, sign0));
-                                v128 cast1 = Sse2.add_epi64(Sse2.unpackhi_epi32(acc1, sign1),
-                                                            Sse2.unpacklo_epi32(acc1, sign1));
-                                v128 cast2 = Sse2.add_epi64(Sse2.unpackhi_epi32(acc2, sign2),
-                                                            Sse2.unpacklo_epi32(acc2, sign2));
-                                v128 cast3 = Sse2.add_epi64(Sse2.unpackhi_epi32(acc3, sign3),
-                                                            Sse2.unpacklo_epi32(acc3, sign3));
-
-                                longs = Sse2.add_epi64(longs, Sse2.add_epi64(Sse2.add_epi64(cast0, cast1),
-                                                                             Sse2.add_epi64(cast2, cast3)));
-                            }
+                            longs = Xse.add_epi64(longs, Xse.add_epi64(Xse.add_epi64(acc0, acc1), Xse.add_epi64(acc2, acc3)));
                         }
 
+                        v128 csum = Xse.vsum_epi64(longs);
+                        long sum = csum.SLong0;
 
-                        v128 ints;
+                        v128 intSum;
 
                         if (Hint.Likely((int)length >= 8))
                         {
-                            v128 load = Sse2.loadu_si128(address++);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                ints = Sse2.add_epi32(Sse4_1.cvtepi16_epi32(load),
-                                                      Sse4_1.cvtepi16_epi32(Sse2.shuffle_epi32(load, Sse.SHUFFLE(0, 0, 3, 2))));
-                            }
-                            else
-                            {
-                                v128 signShort = Sse2.cmpgt_epi16(ZERO, load);
-
-                                ints = Sse2.add_epi32(Sse2.unpacklo_epi16(load, signShort),
-                                                      Sse2.unpackhi_epi16(load, signShort));
-                            }
+                            v128 load = Xse.loadu_si128(address++);
+                            v128 lo = Xse.cvt2x2epi16_epi32(load, out v128 hi);
+                            intSum = Xse.add_epi32(lo, hi);
 
                             length -= 8;
                         }
                         else
                         {
-                            ints = default(v128);
+                            intSum = Xse.setzero_si128();
                         }
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            v128 load = Sse2.cvtsi64x_si128(*(long*)address);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                ints = Sse2.add_epi32(ints, Sse4_1.cvtepi16_epi32(load));
-                            }
-                            else
-                            {
-                                ints = Sse2.add_epi32(ints, Sse2.unpacklo_epi16(load, Sse2.cmpgt_epi16(ZERO, load)));
-                            }
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepi16_epi32(Xse.cvtsi64x_si128(*(long*)address)));
 
                             length -= 4;
                             address = (v128*)((long*)address + 1);
                         }
-                        else { }
+
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            v128 load = Sse2.cvtsi32_si128(*(int*)address);
-
-                            if (Sse4_1.IsSse41Supported)
-                            {
-                                ints = Sse2.add_epi32(ints, Sse4_1.cvtepi16_epi32(load));
-                            }
-                            else
-                            {
-                                ints = Sse2.add_epi32(ints, Sse2.unpacklo_epi16(load, Sse2.cmpgt_epi16(ZERO, load)));
-                            }
+                            intSum = Xse.add_epi32(intSum, Xse.cvtepi16_epi32(Xse.cvtsi32_si128(*(int*)address)));
 
                             length -= 2;
                             address = (v128*)((int*)address + 1);
                         }
-                        else { }
 
-                        ints = Sse2.add_epi32(ints, Sse2.shuffle_epi32(ints, Sse.SHUFFLE(0, 0, 3, 2)));
-
-                        if (Sse4_1.IsSse41Supported)
-                        {
-                            longs = Sse2.add_epi64(longs, Sse4_1.cvtepi32_epi64(ints));
-                        }
-                        else
-                        {
-                            v128 signInt = Sse2.cmpgt_epi32(ZERO, ints);
-
-                            longs = Sse2.add_epi64(longs, Sse2.unpacklo_epi32(ints, signInt));
-                        }
-
-                        v128 csum_0 = Sse2.add_epi64(longs, Sse2.shuffle_epi32(longs, Sse.SHUFFLE(0, 0, 3, 2)));
-                        long sum = csum_0.SLong0;
-
+                        intSum = Xse.add_epi32(intSum, Xse.shuffle_epi32(intSum, Sse.SHUFFLE(0, 0, 0, 1)));
+                        sum += intSum.SInt0;
 
                         if (Hint.Likely(length != 0))
                         {
                             sum += *(short*)address;
                         }
-                        else { }
-                        
-                        
+
                         return sum;
                     }
                     else
@@ -2071,7 +1848,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -2093,7 +1870,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -2115,7 +1892,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<short> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((short*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -2179,7 +1956,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -2201,7 +1978,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -2223,7 +2000,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<int> array, int index, int numEntries, TypeCode range = TypeCode.Empty)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((int*)array.GetUnsafeReadOnlyPtr() + index, numEntries, range);
         }
@@ -2261,7 +2038,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeArray<long> array, int index, int numEntries)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
@@ -2283,7 +2060,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeList<long> array, int index, int numEntries)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
@@ -2305,7 +2082,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long SIMD_Sum(this NativeSlice<long> array, int index, int numEntries)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((long*)array.GetUnsafeReadOnlyPtr() + index, numEntries);
         }
@@ -2322,10 +2099,10 @@ Assert.IsNonNegative(length);
                 {
                     if (Avx.IsAvxSupported)
                     {
-                        v256 acc0 = default(v256);
-                        v256 acc1 = default(v256);
-                        v256 acc2 = default(v256);
-                        v256 acc3 = default(v256);
+                        v256 acc0= Avx.mm256_setzero_ps();
+                        v256 acc1= Avx.mm256_setzero_ps();
+                        v256 acc2= Avx.mm256_setzero_ps();
+                        v256 acc3= Avx.mm256_setzero_ps();
                         v256* ptr_v256 = (v256*)ptr;
 
                         while (Hint.Likely(length >= 32))
@@ -2364,68 +2141,64 @@ Assert.IsNonNegative(length);
                             }
                         }
 
-                        v128 csum1 = Sse.add_ps(Avx.mm256_castps256_ps128(csum0), Avx.mm256_extractf128_ps(csum0, 1));
+                        v128 csum1 = Xse.add_ps(Avx.mm256_castps256_ps128(csum0), Avx.mm256_extractf128_ps(csum0, 1));
 
                         if (Hint.Likely(length >= 4))
                         {
-                            csum1 = Sse.add_ps(csum1, Sse.loadu_ps(ptr_v256));
+                            csum1 = Xse.add_ps(csum1, *(v128*)ptr_v256);
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 4;
                         }
-                        else { }
 
-                        v128 csum2 = Sse.add_ps(csum1, Sse.shuffle_ps(csum1, csum1, Sse.SHUFFLE(0, 0, 3, 2)));
+                        v128 csum2 = Xse.add_ps(csum1, Xse.shuffle_ps(csum1, csum1, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely(length >= 2))
                         {
-                            csum2 = Sse.add_ps(csum2, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                            csum2 = Xse.add_ps(csum2, Xse.cvtsi64x_si128(*(long*)ptr_v256));
                             ptr_v256 = (v256*)((long*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        v128 csum3 = Sse.add_ss(csum2, Sse.shuffle_ps(csum2, csum2, Sse.SHUFFLE(0, 0, 0, 1)));
+                        v128 csum3 = Xse.add_ss(csum2, Xse.shuffle_ps(csum2, csum2, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely(length != 0))
                         {
-                            csum3 = Sse.add_ss(csum3, Sse2.cvtsi32_si128(*(int*)ptr_v256));
+                            csum3 = Xse.add_ss(csum3, Xse.cvtsi32_si128(*(int*)ptr_v256));
                         }
-                        else { }
-
 
                         return csum3.Float0;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 acc0 = default(v128);
-                        v128 acc1 = default(v128);
-                        v128 acc2 = default(v128);
-                        v128 acc3 = default(v128);
+                        v128 acc0 = Xse.setzero_ps();
+                        v128 acc1 = Xse.setzero_ps();
+                        v128 acc2 = Xse.setzero_ps();
+                        v128 acc3 = Xse.setzero_ps();
                         v128* ptr_v128 = (v128*)ptr;
 
                         while (Hint.Likely(length >= 16))
                         {
-                            acc0 = Sse.add_ps(acc0, Sse.loadu_ps(ptr_v128++));
-                            acc1 = Sse.add_ps(acc1, Sse.loadu_ps(ptr_v128++));
-                            acc2 = Sse.add_ps(acc2, Sse.loadu_ps(ptr_v128++));
-                            acc3 = Sse.add_ps(acc3, Sse.loadu_ps(ptr_v128++));
+                            acc0 = Xse.add_ps(acc0, *ptr_v128++);
+                            acc1 = Xse.add_ps(acc1, *ptr_v128++);
+                            acc2 = Xse.add_ps(acc2, *ptr_v128++);
+                            acc3 = Xse.add_ps(acc3, *ptr_v128++);
 
                             length -= 16;
                         }
 
-                        v128 csum0 = Sse.add_ps(Sse.add_ps(acc0, acc1), Sse.add_ps(acc2, acc3));
+                        v128 csum0 = Xse.add_ps(Xse.add_ps(acc0, acc1), Xse.add_ps(acc2, acc3));
 
                         if (Hint.Likely((int)length >= 4))
                         {
-                            csum0 = Sse.add_ps(csum0, Sse.loadu_ps(ptr_v128++));
+                            csum0 = Xse.add_ps(csum0, *ptr_v128++);
 
                             if (Hint.Likely((int)length >= 2 * 4))
                             {
-                                csum0 = Sse.add_ps(csum0, Sse.loadu_ps(ptr_v128++));
+                                csum0 = Xse.add_ps(csum0, *ptr_v128++);
 
                                 if (Hint.Likely((int)length >= 3 * 4))
                                 {
-                                    csum0 = Sse.add_ps(csum0, Sse.loadu_ps(ptr_v128++));
+                                    csum0 = Xse.add_ps(csum0, *ptr_v128++);
                                     length -= 3 * 4;
                                 }
                                 else
@@ -2439,24 +2212,21 @@ Assert.IsNonNegative(length);
                             }
                         }
 
-                        v128 csum1 = Sse.add_ps(csum0, Sse.shuffle_ps(csum0, csum0, Sse.SHUFFLE(0, 0, 3, 2)));
+                        v128 csum1 = Xse.add_ps(csum0, Xse.shuffle_ps(csum0, csum0, Sse.SHUFFLE(0, 0, 3, 2)));
 
                         if (Hint.Likely(length >= 2))
                         {
-                            csum1 = Sse.add_ps(csum1, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                            csum1 = Xse.add_ps(csum1, Xse.cvtsi64x_si128(*(long*)ptr_v128));
                             ptr_v128 = (v128*)((long*)ptr_v128 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        v128 csum2 = Sse.add_ss(csum1, Sse.shuffle_ps(csum1, csum1, Sse.SHUFFLE(0, 0, 0, 1)));
+                        v128 csum2 = Xse.add_ss(csum1, Xse.shuffle_ps(csum1, csum1, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely(length != 0))
                         {
-                            csum2 = Sse.add_ss(csum2, Sse2.cvtsi32_si128(*(int*)ptr_v128));
+                            csum2 = Xse.add_ss(csum2, Xse.cvtsi32_si128(*(int*)ptr_v128));
                         }
-                        else { }
-
 
                         return csum2.Float0;
                     }
@@ -2496,7 +2266,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Sum(this NativeArray<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
@@ -2518,7 +2288,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Sum(this NativeList<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
@@ -2540,7 +2310,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float SIMD_Sum(this NativeSlice<float> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((float*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
@@ -2557,10 +2327,10 @@ Assert.IsNonNegative(length);
                 {
                     if (Avx.IsAvxSupported)
                     {
-                        v256 acc0 = default(v256);
-                        v256 acc1 = default(v256);
-                        v256 acc2 = default(v256);
-                        v256 acc3 = default(v256);
+                        v256 acc0= Avx.mm256_setzero_pd();
+                        v256 acc1= Avx.mm256_setzero_pd();
+                        v256 acc2= Avx.mm256_setzero_pd();
+                        v256 acc3= Avx.mm256_setzero_pd();
                         v256* ptr_v256 = (v256*)ptr;
 
                         while (Hint.Likely(length >= 16))
@@ -2599,58 +2369,55 @@ Assert.IsNonNegative(length);
                             }
                         }
 
-                        v128 csum1 = Sse2.add_pd(Avx.mm256_castpd256_pd128(csum0), Avx.mm256_extractf128_pd(csum0, 1));
+                        v128 csum1 = Xse.add_pd(Avx.mm256_castpd256_pd128(csum0), Avx.mm256_extractf128_pd(csum0, 1));
 
                         if (Hint.Likely(length >= 2))
                         {
-                            csum1 = Sse2.add_pd(csum1, Sse.loadu_ps(ptr_v256));
+                            csum1 = Xse.add_pd(csum1, *(v128*)ptr_v256);
                             ptr_v256 = (v256*)((v128*)ptr_v256 + 1);
                             length -= 2;
                         }
-                        else { }
 
-                        v128 csum2 = Sse2.add_sd(csum1, Sse2.shuffle_pd(csum1, csum1, Sse.SHUFFLE(0, 0, 0, 1)));
+                        v128 csum2 = Xse.add_sd(csum1, Xse.shuffle_pd(csum1, csum1, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely(length != 0))
                         {
-                            csum2 = Sse2.add_sd(csum2, Sse2.cvtsi64x_si128(*(long*)ptr_v256));
+                            csum2 = Xse.add_sd(csum2, Xse.cvtsi64x_si128(*(long*)ptr_v256));
                         }
-                        else { }
-
 
                         return csum2.Float0;
                     }
-                    else if (Sse2.IsSse2Supported)
+                    else if (BurstArchitecture.IsSIMDSupported)
                     {
-                        v128 acc0 = default(v128);
-                        v128 acc1 = default(v128);
-                        v128 acc2 = default(v128);
-                        v128 acc3 = default(v128);
+                        v128 acc0 = Xse.setzero_ps();
+                        v128 acc1 = Xse.setzero_ps();
+                        v128 acc2 = Xse.setzero_ps();
+                        v128 acc3 = Xse.setzero_ps();
                         v128* ptr_v128 = (v128*)ptr;
 
                         while (Hint.Likely(length >= 8))
                         {
-                            acc0 = Sse2.add_pd(acc0, Sse.loadu_ps(ptr_v128++));
-                            acc1 = Sse2.add_pd(acc1, Sse.loadu_ps(ptr_v128++));
-                            acc2 = Sse2.add_pd(acc2, Sse.loadu_ps(ptr_v128++));
-                            acc3 = Sse2.add_pd(acc3, Sse.loadu_ps(ptr_v128++));
+                            acc0 = Xse.add_pd(acc0, *ptr_v128++);
+                            acc1 = Xse.add_pd(acc1, *ptr_v128++);
+                            acc2 = Xse.add_pd(acc2, *ptr_v128++);
+                            acc3 = Xse.add_pd(acc3, *ptr_v128++);
 
                             length -= 8;
                         }
 
-                        v128 csum0 = Sse2.add_pd(Sse2.add_pd(acc0, acc1), Sse2.add_pd(acc2, acc3));
+                        v128 csum0 = Xse.add_pd(Xse.add_pd(acc0, acc1), Xse.add_pd(acc2, acc3));
 
                         if (Hint.Likely((int)length >= 2))
                         {
-                            csum0 = Sse2.add_pd(csum0, Sse.loadu_ps(ptr_v128++));
+                            csum0 = Xse.add_pd(csum0, *ptr_v128++);
 
                             if (Hint.Likely((int)length >= 2 * 2))
                             {
-                                csum0 = Sse2.add_pd(csum0, Sse.loadu_ps(ptr_v128++));
+                                csum0 = Xse.add_pd(csum0, *ptr_v128++);
 
                                 if (Hint.Likely((int)length >= 3 * 2))
                                 {
-                                    csum0 = Sse2.add_pd(csum0, Sse.loadu_ps(ptr_v128++));
+                                    csum0 = Xse.add_pd(csum0, *ptr_v128++);
                                     length -= 3 * 2;
                                 }
                                 else
@@ -2664,14 +2431,12 @@ Assert.IsNonNegative(length);
                             }
                         }
 
-                        v128 csum1 = Sse2.add_sd(csum0, Sse2.shuffle_pd(csum0, csum0, Sse.SHUFFLE(0, 0, 0, 1)));
+                        v128 csum1 = Xse.add_sd(csum0, Xse.shuffle_pd(csum0, csum0, Sse.SHUFFLE(0, 0, 0, 1)));
 
                         if (Hint.Likely(length != 0))
                         {
-                            csum1 = Sse2.add_sd(csum1, Sse2.cvtsi64x_si128(*(long*)ptr_v128));
+                            csum1 = Xse.add_sd(csum1, Xse.cvtsi64x_si128(*(long*)ptr_v128));
                         }
-                        else { }
-
 
                         return csum1.Float0;
                     }
@@ -2711,7 +2476,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Sum(this NativeArray<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
@@ -2733,7 +2498,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Sum(this NativeList<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }
@@ -2755,7 +2520,7 @@ Assert.IsWithinArrayBounds(index, array.Length);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double SIMD_Sum(this NativeSlice<double> array, int index, int numEntries, FloatMode floatMode = FloatMode.Strict)
         {
-Assert.IsWithinArrayBounds(index + numEntries - 1, array.Length);
+Assert.IsValidSubarray(index, numEntries, array.Length);
 
             return SIMD_Sum((double*)array.GetUnsafeReadOnlyPtr() + index, numEntries, floatMode);
         }

@@ -5,13 +5,13 @@ namespace SIMDAlgorithms.Tests
 {
     public static class Count
     {
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Bool_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<bool>(
-            (array) => 
+            (array) =>
             {
                 long std_true = 0;
                 long std_false = 0;
@@ -34,13 +34,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextBool);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Bool_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<bool>(
-            (array) => 
+            (array) =>
             {
                 byte std_true = 0;
                 byte std_false = 0;
@@ -64,13 +64,13 @@ namespace SIMDAlgorithms.Tests
         }
 
         #region EQUAL
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_Equal_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -91,13 +91,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_Equal_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -118,13 +118,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_Equal_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -145,13 +145,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_Equal_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -172,13 +172,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt_Equal_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -212,13 +212,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong_Equal()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 long std = 0;
                 ulong test = rng.NextUInt() | ((ulong)rng.NextUInt() << 32);
@@ -249,13 +249,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_Equal_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -276,13 +276,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_Equal_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -303,13 +303,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_Equal_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -330,13 +330,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_Equal_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -357,13 +357,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int_Equal_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -397,13 +397,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long_Equal()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 long std = 0;
                 long test = rng.NextUInt() | ((long)rng.NextUInt() << 32);
@@ -434,13 +434,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((long)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float_Equal()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -474,13 +474,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double_Equal()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -516,13 +516,13 @@ namespace SIMDAlgorithms.Tests
         #endregion
 
         #region NOT_EQUAL
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_NotEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -543,13 +543,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_NotEqual_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -570,13 +570,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_NotEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -597,13 +597,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_NotEqual_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -624,13 +624,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt_NotEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -665,13 +665,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong_NotEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -706,13 +706,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_NotEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -733,13 +733,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_NotEqual_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -760,13 +760,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_NotEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -787,13 +787,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_NotEqual_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -814,13 +814,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int_NotEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -834,7 +834,7 @@ namespace SIMDAlgorithms.Tests
                             std++;
                         }
                     }
-                    
+
                     if (std == array.Length)
                     {
                         test = array[rng.NextInt(0, array.Length)];
@@ -855,13 +855,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long_NotEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -875,7 +875,7 @@ namespace SIMDAlgorithms.Tests
                             std++;
                         }
                     }
-                    
+
                     if (std == array.Length)
                     {
                         test = array[rng.NextInt(0, array.Length)];
@@ -896,13 +896,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((long)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float_NotEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -916,7 +916,7 @@ namespace SIMDAlgorithms.Tests
                             std++;
                         }
                     }
-                    
+
                     if (std == array.Length)
                     {
                         test = array[rng.NextInt(0, array.Length)];
@@ -937,13 +937,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double_NotEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -978,15 +978,15 @@ namespace SIMDAlgorithms.Tests
             rng.NextDouble);
         }
         #endregion
-        
+
         #region LESS
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_Less_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1007,13 +1007,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_Less_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1034,13 +1034,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_Less_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1061,13 +1061,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_Less_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1088,13 +1088,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt_Less_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1115,13 +1115,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong_Less()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 long std = 0;
                 ulong test = rng.NextUInt() | ((ulong)rng.NextUInt() << 32);
@@ -1139,13 +1139,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_Less_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1166,13 +1166,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_Less_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1193,13 +1193,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_Less_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1220,13 +1220,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_Less_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1247,13 +1247,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int_Less_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1274,13 +1274,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long_Less()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 long std = 0;
                 long test = rng.NextUInt() | ((long)rng.NextUInt() << 32);
@@ -1298,13 +1298,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((long)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float_Less()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1325,13 +1325,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double_Less()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1352,15 +1352,15 @@ namespace SIMDAlgorithms.Tests
             rng.NextDouble);
         }
         #endregion
-        
+
         #region GREATER
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_Greater_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1381,13 +1381,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_Greater_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1408,13 +1408,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_Greater_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1435,13 +1435,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_Greater_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1462,13 +1462,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt_Greater_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1489,13 +1489,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong_Greater()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1516,13 +1516,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_Greater_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1543,13 +1543,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_Greater_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1570,13 +1570,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_Greater_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1597,13 +1597,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_Greater_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1624,13 +1624,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int_Greater_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1651,13 +1651,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long_Greater()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1678,13 +1678,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((long)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float_Greater()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1705,13 +1705,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double_Greater()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1732,15 +1732,15 @@ namespace SIMDAlgorithms.Tests
             rng.NextDouble);
         }
         #endregion
-        
+
         #region LESS_EQUAL
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_LessOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1761,13 +1761,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_LessOrEqual_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1788,13 +1788,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_LessOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1815,13 +1815,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_LessOrEqual_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1842,13 +1842,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt_LessOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1869,13 +1869,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong_LessOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1896,13 +1896,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_LessOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1923,13 +1923,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_LessOrEqual_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1950,13 +1950,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_LessOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -1977,13 +1977,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_LessOrEqual_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2004,13 +2004,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int_LessOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2031,13 +2031,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long_LessOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2058,13 +2058,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((long)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float_LessOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2085,13 +2085,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double_LessOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2112,15 +2112,15 @@ namespace SIMDAlgorithms.Tests
             rng.NextDouble);
         }
         #endregion
-        
+
         #region GREATER_EQUAL
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_GreaterOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2141,13 +2141,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Byte_GreaterOrEqual_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<byte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2168,13 +2168,13 @@ namespace SIMDAlgorithms.Tests
             () => (byte)rng.NextInt(byte.MinValue, byte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_GreaterOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2195,13 +2195,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UShort_GreaterOrEqual_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ushort>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2222,13 +2222,13 @@ namespace SIMDAlgorithms.Tests
             () => (ushort)rng.NextInt(ushort.MinValue, ushort.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void UInt_GreaterOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<uint>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2249,13 +2249,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextUInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void ULong_GreaterOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<ulong>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2276,13 +2276,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((ulong)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_GreaterOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2303,13 +2303,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void SByte_GreaterOrEqual_RangeByte()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<sbyte>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2330,13 +2330,13 @@ namespace SIMDAlgorithms.Tests
             () => (sbyte)rng.NextInt(sbyte.MinValue, sbyte.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_GreaterOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2357,13 +2357,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Short_GreaterOrEqual_RangeShort()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<short>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2384,13 +2384,13 @@ namespace SIMDAlgorithms.Tests
             () => (short)rng.NextInt(short.MinValue, short.MaxValue + 1));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Int_GreaterOrEqual_RangeInt()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<int>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2411,13 +2411,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextInt);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Long_GreaterOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<long>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2438,13 +2438,13 @@ namespace SIMDAlgorithms.Tests
             () => rng.NextUInt() | ((long)rng.NextUInt() << 32));
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Float_GreaterOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<float>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
@@ -2465,13 +2465,13 @@ namespace SIMDAlgorithms.Tests
             rng.NextFloat);
         }
 
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public static void Double_GreaterOrEqual()
         {
             Unity.Mathematics.Random rng = new Unity.Mathematics.Random(Helpers.GetRngSeed);
 
             Helpers.Test<double>(
-            (array) => 
+            (array) =>
             {
                 for (int j = 0; j < 10; j++)
                 {
