@@ -1,16 +1,13 @@
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
 using Unity.Burst.Intrinsics;
-using Unity.Burst.CompilerServices;
 using MaxMath;
+using MaxMath.Intrinsics;
 using DevTools;
 
 using static Unity.Burst.Intrinsics.X86;
-using static MaxMath.maxmath;
-using static Unity.Mathematics.math;
-using MaxMath.Intrinsics;
+using static MaxMath.math;
 
 namespace SIMDAlgorithms
 {

@@ -9,7 +9,7 @@ using DevTools;
 using MaxMath;
 
 using static Unity.Burst.Intrinsics.X86;
-using static MaxMath.maxmath;
+using static MaxMath.math;
 using MaxMath.Intrinsics;
 
 namespace SIMDAlgorithms
@@ -157,8 +157,8 @@ Assert.IsNonNegative(length);
                 {
                     if (Avx2.IsAvx2Supported)
                     {
-                        if (ConstChecks256(   ptr, (ulong)length, out v256 result256)) return maxmath.csum((ulong4)result256);
-                        if (ConstChecks128(   ptr, (ulong)length, out v128 result128)) return maxmath.csum((ulong2)result128);
+                        if (ConstChecks256(   ptr, (ulong)length, out v256 result256)) return math.csum((ulong4)result256);
+                        if (ConstChecks128(   ptr, (ulong)length, out v128 result128)) return math.csum((ulong2)result128);
                         if (ConstChecksScalar(ptr, (ulong)length, out ulong result8))  return result8;
 
                         v256 ZERO= Avx.mm256_setzero_si256();
@@ -191,19 +191,19 @@ Assert.IsNonNegative(length);
                         //if (ConstChecks256(ptr, (ulong)length, out result256))
                         //{
                         //    result256 = Avx2.mm256_add_epi64(add2, result256);
-                        //    return maxmath.csum((ulong4)result256);
+                        //    return math.csum((ulong4)result256);
                         //}
                         //if (ConstChecks128(ptr, (ulong)length, out result128))
                         //{
                         //    v128 csum128 = Xse.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
                         //    result128 = Xse.add_epi64(result128, csum128);
-                        //    return maxmath.csum((ulong2)result128);
+                        //    return math.csum((ulong2)result128);
                         //}
                         //if (ConstChecksScalar(ptr, (ulong)length, out result8))
                         //{
                         //    v128 csum128 = Xse.add_epi64(Avx.mm256_castsi256_si128(add2), Avx2.mm256_extracti128_si256(add2, 1));
                         //    result128 = Xse.add_epi64(result128, csum128);
-                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //    return result8 + math.csum((ulong2)result128);
                         //}
 
                         if (Hint.Likely((int)length >= 32))
@@ -236,12 +236,12 @@ Assert.IsNonNegative(length);
                         //if (ConstChecks128(ptr, (ulong)length, out result128))
                         //{
                         //    result128 = Xse.add_epi64(result128, csum0);
-                        //    return maxmath.csum((ulong2)result128);
+                        //    return math.csum((ulong2)result128);
                         //}
                         //if (ConstChecksScalar(ptr, (ulong)length, out result8))
                         //{
                         //    result128 = Xse.add_epi64(result128, csum0);
-                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //    return result8 + math.csum((ulong2)result128);
                         //}
 
                         if (Hint.Likely((int)length >= 16))
@@ -255,12 +255,12 @@ Assert.IsNonNegative(length);
                         //if (ConstChecks128(ptr, (ulong)length, out result128))
                         //{
                         //    result128 = Xse.add_epi64(result128, csum0);
-                        //    return maxmath.csum((ulong2)result128);
+                        //    return math.csum((ulong2)result128);
                         //}
                         //if (ConstChecksScalar(ptr, (ulong)length, out result8))
                         //{
                         //    result128 = Xse.add_epi64(result128, csum0);
-                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //    return result8 + math.csum((ulong2)result128);
                         //}
                         if (Hint.Likely((int)length >= 8))
                         {
@@ -272,12 +272,12 @@ Assert.IsNonNegative(length);
                         //if (ConstChecks128(ptr, (ulong)length, out result128))
                         //{
                         //    result128 = Xse.add_epi64(result128, csum0);
-                        //    return maxmath.csum((ulong2)result128);
+                        //    return math.csum((ulong2)result128);
                         //}
                         //if (ConstChecksScalar(ptr, (ulong)length, out result8))
                         //{
                         //    result128 = Xse.add_epi64(result128, csum0);
-                        //    return result8 + maxmath.csum((ulong2)result128);
+                        //    return result8 + math.csum((ulong2)result128);
                         //}
                         if (Hint.Likely((int)length >= 4))
                         {

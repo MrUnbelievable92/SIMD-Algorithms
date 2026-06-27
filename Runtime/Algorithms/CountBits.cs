@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -9,8 +8,7 @@ using MaxMath.Intrinsics;
 using DevTools;
 
 using static Unity.Burst.Intrinsics.X86;
-using static MaxMath.maxmath;
-using static Unity.Mathematics.math;
+using static MaxMath.math;
 
 namespace SIMDAlgorithms
 {
