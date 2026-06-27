@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using DevTools;
@@ -25,7 +24,7 @@ namespace SIMDAlgorithms
             }
             else
             {
-                return maxmath.bitfield((byte)value, (byte)value, (byte)value, (byte)value, (byte)value, (byte)value, (byte)value, (byte)value);
+                return math.bitfield((byte)value, (byte)value, (byte)value, (byte)value, (byte)value, (byte)value, (byte)value, (byte)value);
             }
         }
 

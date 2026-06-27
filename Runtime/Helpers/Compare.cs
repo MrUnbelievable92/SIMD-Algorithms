@@ -441,7 +441,7 @@ namespace SIMDAlgorithms
                 {
                     case Comparison.EqualTo:                return Avx2.mm256_cmpeq_epi64(left, right);
                     case Comparison.NotEqualTo:             return Avx2.mm256_cmpeq_epi64(left, right);
-                    case Comparison.GreaterThan:            return Xse.mm256_cmpgt_epi64(left, right);
+                    case Comparison.GreaterThan:            return Avx2.mm256_cmpgt_epi64(left, right);
                     case Comparison.LessThan:               return Xse.mm256_cmplt_epi64(left, right);
                     case Comparison.GreaterThanOrEqualTo:   goto case Comparison.LessThan;
                     case Comparison.LessThanOrEqualTo:      goto case Comparison.GreaterThan;

@@ -5,7 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using DevTools;
 using Unity.Burst;
 
-using static MaxMath.maxmath;
+using static MaxMath.math;
 
 namespace SIMDAlgorithms
 {

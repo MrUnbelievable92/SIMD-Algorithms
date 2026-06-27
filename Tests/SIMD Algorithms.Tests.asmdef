@@ -18,7 +18,9 @@
         "nunit.framework.dll"
     ],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "SIMDALGORITHMS_TESTS"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }
