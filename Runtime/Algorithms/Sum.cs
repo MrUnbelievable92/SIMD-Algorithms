@@ -7,10 +7,10 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Burst;
 using DevTools;
 using MaxMath;
+using MaxMath.CompilerServices;
+using MaxMath.Intrinsics;
 
 using static Unity.Burst.Intrinsics.X86;
-using static MaxMath.math;
-using MaxMath.Intrinsics;
 
 namespace SIMDAlgorithms
 {

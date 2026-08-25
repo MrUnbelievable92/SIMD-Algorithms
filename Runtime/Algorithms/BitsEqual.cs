@@ -3,8 +3,9 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Burst.Intrinsics;
 using Unity.Burst.CompilerServices;
-using MaxMath.Intrinsics;
 using DevTools;
+using MaxMath.CompilerServices;
+using MaxMath.Intrinsics;
 
 using static Unity.Burst.Intrinsics.X86;
 
