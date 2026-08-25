@@ -1,5 +1,4 @@
-using MaxMath.Intrinsics;
-using Unity.Burst.CompilerServices;
+using MaxMath.CompilerServices;
 
 using static Unity.Burst.Intrinsics.X86;
 

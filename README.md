@@ -6,28 +6,9 @@ All included functions have a "SIMD_" prefix added to their name.
 
 There is a base version of each algorithm which takes in a pointer in the static "SIMDAlgorithms.Algorithms" class. There are extension methods of each algorithm for Unity.Collections' NativeArray, NativeSlice and NativeList aswell.
 
-# How To Install This Library
+Note: 
+- [C Sharp Dev Tools](https://github.com/MrUnbelievable92/C-Sharp-Dev-Tools) (conditionally compiled runtime checks) is required. Unit tests for this library are included in this repository.
 
-It is highly encouraged to use the Scoped Registries feature for installing SIMD-Algorithms.
-
-Installing using Scoped Registries:
-- Open your Unity project.
-- Go to Edit → Project Settings → Package Manager.
-- Under Scoped Registries, click + to add a new registry.
-- Enter the registry details:
-
-<blockquote>
-<ul>
-<li>Name: MrUnbelievable</li>
-<li>URL: https://registry.npmjs.org</li>
-<li>Scopes: com.mrunbelievable</li>
-</ul>
-</blockquote>
-
-- Click Save.
-- Open Window → Package Manager.
-- In the package list, select My Registries.
-- Install SIMD-Algorithms from the registry.
 
 # Donations
 

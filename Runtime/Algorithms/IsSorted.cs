@@ -2,9 +2,10 @@ using System;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using DevTools;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
+using DevTools;
+using MaxMath.CompilerServices;
 using MaxMath.Intrinsics;
 
 using static Unity.Burst.Intrinsics.X86;
